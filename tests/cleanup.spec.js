@@ -88,6 +88,17 @@ test('Próximo manual com 80% assistidos também permite remoção após o aviso
   await page.close();
 });
 
+test('final completo seguido de avanço automático remove só após seis segundos de aviso',async()=>{
+  const page=await open('&native=1');
+  await page.evaluate(()=>{cleanupFixture.finish();cleanupFixture.navigate();});
+  await shown(page);
+  expect(await count(page)).toBe(0);
+  await approve(page);
+  await expect.poll(()=>page.evaluate(()=>cleanupFixture.results.some(result=>result.type==='done'))).toBe(true);
+  expect(await page.locator('ytd-playlist-panel-video-renderer').evaluateAll(rows=>rows.map(row=>row.data.videoId))).toEqual(['next0000001']);
+  await page.close();
+});
+
 test('a soma de trechos realmente assistidos pode atingir 80% mesmo com uma lacuna',async()=>{
   const page=await open();
   await page.evaluate(()=>{cleanupFixture.watch([[0,40],[60,100]],100);cleanupFixture.navigate();});
@@ -266,6 +277,51 @@ test('pipeline nativo preserva a fila se o servidor recusar e não repete a remo
   expect(await count(page)).toBe(1);
   expect(await page.evaluate(()=>cleanupFixture.nativeRequests.length)).toBe(1);
   expect(await page.locator('video').evaluate(video=>video.paused)).toBe(false);
+  await page.close();
+});
+
+for(const query of ['staleResponse','noInternals']) {
+  test(`remoção nativa não depende de dados internos desatualizados: ${query}`,async()=>{
+    const page=await open(`&native=1&${query}=1`);
+    await page.evaluate(()=>{cleanupFixture.finish();cleanupFixture.navigate();});
+    await shown(page);
+    expect(await page.evaluate(()=>cleanupFixture.nativeRequests.length)).toBe(0);
+    await approve(page);
+    await expect.poll(()=>page.evaluate(()=>cleanupFixture.results.some(result=>result.type==='done'))).toBe(true);
+    expect(await page.locator('ytd-playlist-panel-video-renderer').evaluateAll(rows=>rows.map(row=>row.data.videoId))).toEqual(['next0000001']);
+    expect(await page.evaluate(()=>document.getElementById('movie_player').getPlaylist())).toEqual(['next0000001']);
+    expect(await page.locator('video').evaluate(video=>video.paused)).toBe(false);
+    await page.close();
+  });
+}
+
+test('confirmação do servidor com fila do player antiga não anuncia sucesso nem repete o pedido',async()=>{
+  const page=await open('&native=1&staleQueue=1');
+  await page.evaluate(()=>{cleanupFixture.finish();cleanupFixture.navigate();});
+  await shown(page);
+  await approve(page);
+  await page.clock.runFor(2100);
+  await expect.poll(()=>page.evaluate(()=>cleanupFixture.results.some(result=>result.type==='error'))).toBe(true);
+  await expect(page.locator('#tubeorder-cleanup-result')).toContainText('a fila ainda não foi atualizada');
+  expect(await page.evaluate(()=>cleanupFixture.results.some(result=>result.type==='done'))).toBe(false);
+  expect(await page.evaluate(()=>cleanupFixture.nativeRequests.length)).toBe(1);
+  await page.clock.fastForward(30000);
+  expect(await count(page)).toBe(1);
+  await page.close();
+});
+
+test('comando nativo que aponta para outro item é recusado com motivo visível e nenhum pedido',async()=>{
+  const page=await open('&native=1');
+  await page.evaluate(()=>{
+    const row=document.querySelector('ytd-playlist-panel-video-renderer');
+    row.data.menu.menuRenderer.items[0].menuServiceItemRenderer.serviceEndpoint.playlistEditEndpoint.actions[0].setVideoId='set-next0000001';
+    cleanupFixture.finish();cleanupFixture.navigate();
+  });
+  await shown(page);
+  await page.clock.fastForward(6100);
+  await expect(page.locator('#tubeorder-cleanup-result')).toContainText('comando de remoção');
+  expect(await page.evaluate(()=>cleanupFixture.nativeRequests.length)).toBe(0);
+  expect(await page.locator('ytd-playlist-panel-video-renderer').count()).toBe(2);
   await page.close();
 });
 

@@ -21,6 +21,8 @@ A opção **Remover vídeos assistidos**, no popup da extensão, fica ativada po
 
 Clique em **Não apagar** durante o aviso para manter o vídeo. Isso cancela somente a tentativa atual: se você reassistir ao vídeo e avançar outra vez, ele poderá receber um novo aviso. Se o próximo for pausado, o aviso espera; ao retomar, os seis segundos começam novamente. Sair da playlist ou mudar de vídeo durante a contagem cancela aquela remoção. A confirmação de sucesso só aparece depois da resposta do YouTube e da atualização da fila. Falhas não causam tentativas automáticas em sequência.
 
+Se a remoção falhar, o aviso explica o motivo e permanece visível por 15 segundos. A extensão confere o comando nativo do item anterior e a reprodução atual antes de enviar; depois, confirma a resposta do servidor e as filas disponíveis. Dados internos em cache ou funções privadas indisponíveis não impedem o envio de um comando nativo válido.
+
 O percentual considera os trechos efetivamente reproduzidos, não apenas a posição do cursor. Pular diretamente para perto do fim não conta como 80% assistido. A extensão não guarda um histórico de reprodução: a medição vale para a sessão atual da página. Vídeos ao vivo e estados de mídia cuja identidade ou duração não podem ser confirmadas não são removidos automaticamente.
 
 Os avisos não bloqueiam o vídeo, não alteram sua posição ou velocidade e não recarregam a página. Você pode desligar essa função no popup sem desativar a ordenação.

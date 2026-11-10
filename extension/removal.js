@@ -43,6 +43,39 @@
     return Boolean(a && b && a.length === b.length && a.every((id, index) => id === b[index]));
   }
 
+  function queueSnapshot(read, request) {
+    try {
+      const ids = read();
+      if (!Array.isArray(ids) || !ids.includes(request.videoId) || !ids.includes(request.nextVideoId) ||
+          !ids.every(id => typeof id === "string" && id) || new Set(ids).size !== ids.length) return null;
+      return { read, expected: ids.filter(id => id !== request.videoId) };
+    } catch { return null; }
+  }
+
+  function confirmationQueues(panel, request) {
+    const snapshots = [];
+    const add = read => { const snapshot = queueSnapshot(read, request); if (snapshot) snapshots.push(snapshot); };
+    const player = document.getElementById("movie_player");
+    if (typeof player?.getPlaylist === "function") add(() => player.getPlaylist());
+    // Private queue exports and cached response.playingVideoId vary between
+    // YouTube builds. They provide extra confirmation, never permission to
+    // remove an item. The current URL, player and native endpoint are checked
+    // separately; use any available queue only if it contains both identities.
+    try {
+      const controller = panel?.polymerController || panel;
+      const source = typeof controller?.handleDrop === "function" ? Function.prototype.toString.call(controller.handleDrop) : "";
+      const getter = source.match(/([\w$]+)=_\.([\w$]+)\(\);if\(\1\.responsePlaylistData/)?.[2] || "dg";
+      const namespace = window.default_kevlar_base;
+      const manager = typeof namespace?.[getter] === "function" ? namespace[getter]() : null;
+      if (manager?.listId === "WL" || manager?.responsePlaylistData?.playlistId === "WL") {
+        add(() => idsFromContents(manager.responsePlaylistData?.contents));
+        const playbackManager = Object.values(manager).find(value => value && typeof value.getPlaylistData === "function");
+        if (playbackManager) add(() => idsFromContents(playbackManager.getPlaylistData()?.contents));
+      }
+    } catch { /* Native endpoint and visible queue do not require private exports. */ }
+    return snapshots;
+  }
+
   function playingNext(nextVideoId) {
     if (!watchLater() || new URL(location.href).searchParams.get("v") !== nextVideoId) return false;
     const player = document.getElementById("movie_player");
@@ -79,40 +112,28 @@
   }
 
   function prepare(request) {
-    if (!enabled || !playingNext(request.nextVideoId) || request.videoId === request.nextVideoId) return null;
+    if (!enabled || !playingNext(request.nextVideoId) || request.videoId === request.nextVideoId) {
+      throw new Error("O vídeo foi mantido porque a reprodução mudou antes da remoção.");
+    }
     const visible = rows();
     const oldRow = visible.find((row) => data(row)?.videoId === request.videoId);
     const nextRow = visible.find((row) => data(row)?.videoId === request.nextVideoId);
     const oldData = oldRow && data(oldRow);
-    if (!oldRow || !nextRow || oldData.selected || oldRow.hasAttribute("selected")) return null;
+    if (!oldRow || !nextRow || oldData.selected || oldRow.hasAttribute("selected")) {
+      throw new Error("A fila mudou antes da remoção. O vídeo anterior foi mantido.");
+    }
     const setVideoId = oldData.playlistSetVideoId || oldData.setVideoId;
-    if (typeof setVideoId !== "string" || !setVideoId || (request.setVideoId && request.setVideoId !== setVideoId)) return null;
+    if (typeof setVideoId !== "string" || !setVideoId || (request.setVideoId && request.setVideoId !== setVideoId)) {
+      throw new Error("Não consegui confirmar o item anterior na playlist. Ele foi mantido.");
+    }
     const endpoint = removalEndpoint(oldRow, setVideoId);
-    if (!endpoint) return null;
+    if (!endpoint) throw new Error("O YouTube não disponibilizou um comando de remoção válido para este item. O vídeo foi mantido.");
     const panel = oldRow.closest("ytd-playlist-panel-renderer");
-    const controller = panel?.polymerController || panel;
-    const namespace = window.default_kevlar_base;
-    const source = typeof controller?.handleDrop === "function" ? Function.prototype.toString.call(controller.handleDrop) : "";
-    const getter = source.match(/([\w$]+)=_\.([\w$]+)\(\);if\(\1\.responsePlaylistData/)?.[2] || "dg";
-    if (typeof namespace?.[getter] !== "function") return null;
-    const manager = namespace[getter]();
-    if (!manager || (manager.listId && manager.listId !== "WL") || manager.responsePlaylistData?.playlistId !== "WL") return null;
-    if (manager.response?.playingVideoId && manager.response.playingVideoId !== request.nextVideoId) return null;
-    const proxy = manager.playlistProxy || manager.queueProxy;
-    if (proxy?.currentUpdateRequest || proxy?.currentRefreshRequest || proxy?.pendingUpdates?.length) return null;
-    const managerIds = idsFromContents(manager.responsePlaylistData.contents);
+    if (data(panel)?.playlistId && data(panel).playlistId !== "WL") throw new Error("A playlist mudou. Nenhum pedido de remoção foi enviado.");
     const domIds = visible.map((row) => data(row)?.videoId);
-    if (!managerIds || !managerIds.includes(request.videoId) || !managerIds.includes(request.nextVideoId) || new Set(domIds).size !== domIds.length) return null;
-    const playbackManager = Object.values(manager).find((value) => value && typeof value.getPlaylistData === "function" && typeof value.setPlaylistData === "function");
-    if (!playbackManager) return null;
-    const playbackData = playbackManager.getPlaylistData();
-    if (playbackData?.playlistId !== "WL") return null;
-    const playbackIds = idsFromContents(playbackData.contents);
-    if (!playbackIds?.includes(request.videoId) || !playbackIds.includes(request.nextVideoId)) return null;
+    if (!domIds.every(id => typeof id === "string" && id) || new Set(domIds).size !== domIds.length) throw new Error("Não consegui confirmar os itens da fila. O vídeo foi mantido.");
     return {
-      oldRow, endpoint, manager, playbackManager, setVideoId,
-      expectedManager: managerIds.filter((id) => id !== request.videoId),
-      expectedPlayback: playbackIds.filter((id) => id !== request.videoId),
+      oldRow, endpoint, setVideoId, queues: confirmationQueues(panel, request),
       expectedDom: domIds.filter((id) => id !== request.videoId),
     };
   }
@@ -146,10 +167,10 @@
   async function confirmQueue(prepared) {
     const deadline = performance.now() + 2000;
     while (performance.now() < deadline) {
-      const managerIds = idsFromContents(prepared.manager.responsePlaylistData?.contents);
-      const playbackIds = idsFromContents(prepared.playbackManager.getPlaylistData()?.contents);
       const domIds = rows().map((row) => data(row)?.videoId);
-      if (sameOrder(managerIds, prepared.expectedManager) && sameOrder(playbackIds, prepared.expectedPlayback) && sameOrder(domIds, prepared.expectedDom)) return true;
+      if (sameOrder(domIds, prepared.expectedDom) && prepared.queues.every(queue => {
+        try { return sameOrder(queue.read(), queue.expected); } catch { return false; }
+      })) return true;
       await new Promise((resolve) => setTimeout(resolve, 40));
     }
     return false;
@@ -185,8 +206,8 @@
     if (attemptedSetId && attempted.has(attemptedSetId)) { emit(request, "duplicate"); return; }
     if (active) { emit(request, "busy"); return; }
     let prepared;
-    try { prepared = prepare(request); } catch { prepared = null; }
-    if (!prepared) { emit(request, "unsupported"); return; }
+    try { prepared = prepare(request); }
+    catch (error) { emit(request, "unsupported", { message: error?.message || "Não consegui confirmar a remoção do vídeo anterior." }); return; }
     active = request;
     void run(request, prepared);
   });

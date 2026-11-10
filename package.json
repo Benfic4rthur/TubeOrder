@@ -1,6 +1,6 @@
 {
   "name": "tubeorder",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "description": "Extensão Chromium para ordenar o Assistir mais tarde do YouTube pela duração.",
   "private": true,
   "scripts": {

@@ -40,6 +40,14 @@ Executar `npm test` para testes unitários e de navegador. Os testes usam o Chro
 - O preview do aviso usa o mesmo botão Não apagar, mas seu caminho de expiração nunca envia pedidos de remoção, inclusive com reprodução pausada.
 - CSP com `require-trusted-types-for 'script'`: o preview permanece visível e o botão Não apagar funciona com a remoção desligada, sem exceções nem pedidos de remoção.
 
+## Versão 1.4.5 — 10 de novembro de 2026
+
+A suíte completa passou com **4 testes unitários e 48 testes de navegador**. A execução de navegador levou 59,5 segundos. Manifesto, referências, ícones e sintaxe JavaScript também passaram na verificação.
+
+As novas regressões reproduzem o aviso que termina sem enviar a remoção quando a resposta interna ainda aponta para o vídeo anterior ou o getter privado da fila não está disponível. Também verificam o avanço automático após o final completo, a recusa de comandos para outro item e a ausência de sucesso quando o servidor confirma mas a fila do player continua antiga. O prazo de seis segundos, o botão Não apagar e a reprodução preservada continuam cobertos.
+
+O transporte do YouTube e as playlists são simulados em um navegador temporário. Nenhum vídeo de uma conta real foi removido para validar esta versão.
+
 ## Resultado em 9 de novembro de 2026
 
 Ordenação: quatro testes unitários e onze testes de navegador foram validados, incluindo os comandos em lote e o painel durante a reprodução. O caso de 157 vídeos em lote, incluindo atualização da página, demorou 4,1 segundos. A regressão do contador duplicado foi validada em 1,4 segundo, com `status.total` igual a 5.

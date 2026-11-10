@@ -54,7 +54,7 @@ body{background:#15151a;color:white;font:16px Arial;padding:20px}ytd-masthead,yt
   const playbackManager={getPlaylistData:()=>playbackData,setPlaylistData:data=>{playbackData=data;}};
   const manager={listId:'WL',responsePlaylistData:{playlistId:'WL',contents:contents()},response:{playingVideoId:OLD},playlistProxy:{videoIds:[...playlist],pendingUpdates:[]},playbackManager};
   if(nativeRemoval) {
-    window.default_kevlar_base={dg:()=>manager};
+    if(!parameters.has('noInternals')) window.default_kevlar_base={dg:()=>manager};
     document.addEventListener('yt-action',event=>{
       if(event.detail?.actionName!=='yt-service-request') return;
       const endpoint=event.detail.args?.[1];
@@ -67,6 +67,7 @@ body{background:#15151a;color:white;font:16px Arial;padding:20px}ytd-masthead,yt
         const row=Array.from(list.children).find(item=>item.data.playlistSetVideoId===setVideoId);
         if(!row||row.data.videoId===state.id) throw new Error('Native fixture refuses to remove the currently playing video');
         row.remove();
+        if(!parameters.has('staleQueue')) playlist.splice(playlist.indexOf(row.data.videoId),1);
         manager.responsePlaylistData={playlistId:'WL',contents:contents()};
         playbackManager.setPlaylistData({playlistId:'WL',contents:contents()});
         manager.playlistProxy.videoIds=Array.from(list.children,item=>item.data.videoId);
@@ -95,7 +96,7 @@ body{background:#15151a;color:white;font:16px Arial;padding:20px}ytd-masthead,yt
       state.duration=ad?6:metadataDuration(dataId);state.currentTime=0;state.ranges=[];state.src=`blob:fixture-${id}${ad?'-ad':''}`;
       event('emptied');event('loadstart');event('loadedmetadata');
     }
-    manager.response.playingVideoId=dataId;
+    if(!parameters.has('staleResponse')) manager.response.playingVideoId=dataId;
     for(const row of list.children){row.data.selected=row.data.videoId===dataId;row.toggleAttribute('selected',row.data.selected);}
     if(!deferURL) document.dispatchEvent(new Event('yt-navigate-finish'));
     if(playing){event('play');event('playing');}

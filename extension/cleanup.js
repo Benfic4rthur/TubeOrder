@@ -150,7 +150,7 @@
     document.documentElement.appendChild(resultHost);
     resultView = globalThis.TubeOrderCleanupUI.mountResult(resultHost, { onDismiss: clearResult });
     resultView.update({ type, message });
-    resultTimer = setTimeout(clearResult, 5000);
+    resultTimer = setTimeout(clearResult, type === "error" ? 15000 : 5000);
   }
 
   function keepVideo() {
@@ -312,7 +312,8 @@
     if (!inFlight || result?.requestId !== inFlight || result.type === "started") return;
     inFlight = null;
     if (result.type === "done") showResult("done", "Vídeo assistido removido do Assistir mais tarde.");
-    else showResult("error", "Não consegui confirmar a remoção do vídeo anterior.");
+    else showResult("error", typeof result.message === "string" && result.message
+      ? result.message : "Não consegui confirmar a remoção do vídeo anterior.");
     maybeNotice();
   });
   window.dispatchEvent(new CustomEvent("tubeorder:cleanup-ready"));
