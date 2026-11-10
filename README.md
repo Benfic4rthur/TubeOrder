@@ -1,91 +1,87 @@
-# TubeOrder
+<p align="center">
+  <img src=".github/assets/tubeorder-cover.png" alt="TubeOrder — Seu tempo, na ordem certa. Organize o Assistir mais tarde por duração." width="1200" />
+</p>
 
-Extensão para Chrome, Microsoft Edge e navegadores baseados em Chromium. Organiza os vídeos do **Assistir mais tarde** do YouTube pela duração e salva a ordem na própria playlist. Assim, quando um vídeo termina, a reprodução automática do YouTube segue a sequência organizada.
+<h1 align="center">TubeOrder</h1>
 
-Versão atual: **1.4.4**.
+<p align="center">
+  Seu <strong>Assistir mais tarde</strong> do YouTube, em ordem de duração.<br />
+  Gratuito, em português, para Chrome, Microsoft Edge e navegadores Chromium compatíveis.
+</p>
 
-[Baixar TubeOrder 1.4.4](https://github.com/Benfic4rthur/TubeOrder/releases/download/v1.4.4/tubeorder-1.4.4.zip) · [Todas as versões](https://github.com/Benfic4rthur/TubeOrder/releases)
+<p align="center">
+  <strong><a href="https://allm4.com/tubeorder/">Conhecer e experimentar</a></strong>
+  &nbsp; · &nbsp;
+  <strong><a href="https://github.com/Benfic4rthur/TubeOrder/releases/latest">Baixar a última versão</a></strong>
+  &nbsp; · &nbsp;
+  <a href="#instalação">Como instalar</a>
+</p>
 
-O mesmo pacote funciona em Google Chrome, Microsoft Edge e navegadores Chromium compatíveis. A instalação atual é manual, por ZIP; a extensão ainda não está publicada nas lojas de extensões. Extraia o pacote e siga as instruções abaixo. O repositório público permite consultar todo o código usado na extensão.
+---
 
-## Como usar
+## Uma fila que acompanha seu tempo
 
-1. Abra o YouTube com sua conta conectada e entre em [Assistir mais tarde](https://www.youtube.com/playlist?list=WL), ou abra um vídeo dessa playlist com `list=WL` na URL. A TubeOrder organiza automaticamente ao entrar em uma dessas telas, usando a última ordem escolhida neste navegador. Na primeira utilização, organiza dos mais curtos para os mais longos.
-2. Para trocar a ordem, use **Curtos primeiro** ou **Longos primeiro** na faixa roxa compacta. Na página da playlist, ela fica ao lado do seletor **Manual**; durante a reprodução, fica no cabeçalho da playlist lateral, junto ao nome do dono da playlist e à contagem de vídeos. Você também pode clicar no ícone roxo da TubeOrder na barra do navegador e escolher **Mais curtos primeiro** ou **Mais longos primeiro**. A escolha fica salva para as próximas entradas.
-3. Deixe a aba aberta enquanto a extensão carrega os vídeos e salva a sequência. O bloqueio de interação mostra **Aguarde enquanto o TubeOrder organiza seus vídeos**, o progresso e a estimativa de tempo restante. Na tela de reprodução, o vídeo permanece visível e o cartão de progresso fica ao lado quando há espaço. Para interromper, clique em **Parar organização** ou pressione **Esc**.
-4. Quando terminar, use **Reproduzir tudo** no YouTube. Mantenha a reprodução aleatória desativada para seguir a ordem.
+Escolha **Curtos primeiro** ou **Longos primeiro**. O TubeOrder salva a sequência na própria playlist do YouTube, e a reprodução automática segue essa ordem.
 
-O processo inclui o carregamento das próximas páginas. Não há um teto artificial de vídeos imposto pela extensão. Listas maiores podem levar mais tempo para carregar e salvar; o tempo exibido é uma estimativa, atualizada conforme as respostas do YouTube. Vídeos sem duração identificável ficam no final. Se a lista já estiver em ordem, nenhuma alteração precisa ser enviada.
+| Recurso | Como funciona |
+| --- | --- |
+| **A lista inteira em ordem** | Carrega as próximas páginas e organiza por duração, sem um limite artificial de vídeos. |
+| **Sua preferência lembrada** | Ao entrar no Assistir mais tarde, aplica a última regra escolhida. |
+| **Também enquanto você assiste** | Funciona na playlist lateral dos vídeos abertos com `list=WL`. |
+| **Controles simples** | Faixa roxa compacta, ícone próprio e status verde para organizado ou vermelho para desorganizado. |
+| **Progresso visível** | Exibe estimativa de tempo e bloqueia a página durante a organização, mantendo o vídeo e seus controles disponíveis. |
+| **Trabalho só quando necessário** | Encerra o acompanhamento da ordenação ao terminar, sem varrer a página continuamente. |
 
-Na tela de reprodução, a organização automática ocorre uma vez por entrada no contexto do Assistir mais tarde. A passagem para o próximo vídeo da mesma playlist não dispara outra organização. Os botões continuam disponíveis para iniciar uma nova ordenação quando você quiser.
+O tempo depende do tamanho da lista e das respostas do YouTube. Vídeos sem duração identificável ficam no final. É necessário estar conectado à sua conta do YouTube.
 
-A faixa compacta permanece em uma linha e indica **✓ Vídeos organizados**, em verde, ou **× Vídeos desorganizados**, em vermelho. **Itens carregados em ordem** significa que apenas a parte carregada foi verificada; **Lista vazia** indica que não há vídeos exibidos. A organização automática carrega o restante da playlist antes de confirmar a sequência completa.
+## Instalação
 
-## Remover vídeos assistidos
+**[Baixe o ZIP na última release](https://github.com/Benfic4rthur/TubeOrder/releases/latest)**, extraia e guarde a pasta em um lugar fixo. O mesmo pacote serve para os dois navegadores.
 
-A opção **Remover vídeos assistidos**, no popup da extensão, fica ativada por padrão. Depois de assistir a pelo menos **80% do vídeo**, você pode avançar manualmente ou deixar o YouTube passar para o seguinte. A extensão espera o novo vídeo começar a tocar e mostra um aviso de **6 segundos** antes de remover o anterior do Assistir mais tarde.
+| Microsoft Edge | Google Chrome / Chromium |
+| --- | --- |
+| Abra `edge://extensions` | Abra `chrome://extensions` |
+| Ative **Modo do desenvolvedor** | Ative **Modo do desenvolvedor** |
+| Clique em **Carregar sem compactação** ou **Carregar sem pacote** | Clique em **Carregar sem compactação** |
 
-Clique em **Não apagar** durante o aviso para manter o vídeo. Se o próximo for pausado, o aviso espera; ao retomar, os seis segundos começam novamente. Sair da playlist ou mudar de vídeo durante a contagem cancela aquela remoção. A confirmação de sucesso só aparece depois da resposta do YouTube e da atualização da fila. Falhas não causam tentativas automáticas em sequência.
+1. Selecione **a pasta extraída que contém `manifest.json`**. Se você clonou o repositório, selecione a pasta [`extension`](extension/).
+2. Fixe o ícone do TubeOrder no menu de extensões e recarregue as abas do YouTube.
+3. Abra o [Assistir mais tarde](https://www.youtube.com/playlist?list=WL). Na primeira utilização, o TubeOrder organiza dos mais curtos para os mais longos.
 
-O percentual considera os trechos efetivamente reproduzidos, não apenas a posição do cursor. Pular diretamente para perto do fim não conta como 80% assistido. A extensão não guarda um histórico de reprodução: a medição vale para a sessão atual da página. Vídeos ao vivo e estados de mídia cuja identidade ou duração não podem ser confirmadas não são removidos automaticamente.
+A distribuição é por ZIP; a extensão ainda não está nas lojas dos navegadores. **Não é necessário instalar Node.js, dependências ou um servidor para usar.** As atualizações também são manuais: substitua os arquivos na pasta instalada, clique em **Recarregar** no cartão da extensão e recarregue o YouTube.
 
-Os avisos não bloqueiam o vídeo, não alteram sua posição ou velocidade e não recarregam a página. Você pode desligar essa função no popup sem desativar a ordenação.
+## Assistiu? Você pode manter ou remover
 
-## Instalação local
+**A remoção de assistidos vem ativada** e pode ser desligada no ícone da extensão. Depois de pelo menos **80% efetivamente reproduzidos**, avance manualmente ou deixe o YouTube iniciar o próximo vídeo. O TubeOrder mostra um aviso de **6 segundos** antes de remover o anterior do Assistir mais tarde.
 
-### Microsoft Edge
+Clique em **Não apagar** para cancelar **somente aquela tentativa**. Se reassistir ao vídeo e avançar novamente, ele poderá receber outro aviso. Pausar o próximo vídeo interrompe a contagem; ao retomar, o prazo começa de novo. [Veja as regras completas](docs/guia.md#remover-vídeos-assistidos).
 
-1. Abra `edge://extensions`.
-2. Ative **Modo do desenvolvedor**.
-3. Clique em **Carregar sem compactação**.
-4. Selecione a pasta `extension` deste projeto, que contém o `manifest.json`.
-5. Atualize a página do YouTube se ela já estava aberta.
-6. No menu **Extensões** do Edge, fixe a TubeOrder na barra de ferramentas para acessar os botões pelo ícone.
+## Leveza e privacidade
 
-### Google Chrome / Chromium
+- O pacote instalado usa JavaScript, CSS e ícones locais, sem dependências de execução, analytics ou servidor próprio.
+- A única permissão declarada é `storage`. Os scripts são carregados em `www.youtube.com`; as ações da playlist ficam restritas ao Assistir mais tarde.
+- As preferências ficam no navegador. As alterações na playlist são gravadas pelo próprio cliente do YouTube, com a sessão já conectada.
+- Após a ordenação, os observadores temporários são desconectados. Com a remoção opcional ligada, o acompanhamento usa eventos nativos do vídeo ativo.
+- O TubeOrder não baixa vídeos nem guarda cópias. Mudanças na interface do YouTube podem exigir atualizações da extensão.
 
-1. Abra `chrome://extensions`.
-2. Ative **Modo do desenvolvedor**.
-3. Clique em **Carregar sem compactação**.
-4. Selecione a pasta `extension`.
-5. Atualize a página do YouTube.
-6. No menu **Extensões**, clique no alfinete da TubeOrder para deixar seu ícone visível na barra.
+Consulte o [manifesto](extension/manifest.json), o [código da extensão](extension/) e o [guia de funcionamento](docs/guia.md).
 
-O pacote ZIP deve ser extraído antes de escolher a pasta. Não é preciso compilar nem instalar dependências para usar a extensão.
+## Para quem quer olhar por dentro
 
-## Como a ordenação funciona
+| Diretório | Conteúdo |
+| --- | --- |
+| [`extension/`](extension/) | Extensão instalável e ícone oficial. |
+| [`tests/`](tests/) | Testes de ordenação, reprodução e remoção cancelável, com páginas simuladas. |
+| [`scripts/`](scripts/) | Verificação, geração dos ícones e empacotamento do ZIP. |
+| [`docs/`](docs/) | Guia de uso, desenvolvimento e publicação de versões. |
 
-A TubeOrder usa o próprio cliente do YouTube para salvar as ações de mover vídeos. Na página da playlist, envia lotes de até **50 movimentos por solicitação**. No painel lateral da reprodução, usa o manipulador nativo de arrastar e a fila de gravações do YouTube, que agrupa as alterações pendentes. A mudança fica salva na conta e a reprodução automática segue a fila organizada.
+**[Desenvolver e testar](docs/desenvolvimento.md)** · **[Publicar uma versão](docs/publicacao.md)** · **[Relatar um problema](https://github.com/Benfic4rthur/TubeOrder/issues)**
 
-A extensão não lê cookies nem tokens de autenticação; o YouTube usa sua própria sessão para executar os comandos. A ordenação só atua em `youtube.com/playlist?list=WL` e `youtube.com/watch?...&list=WL`, com uma conta conectada. Outras playlists e vídeos abertos sem o contexto do Assistir mais tarde permanecem fora desse fluxo.
+As releases alimentam os downloads do site automaticamente: versão, tamanho e pacote pertencem à mesma release estável. Em caso de falha na consulta, o site leva à página da última release.
 
-Antes de enviar alterações, a extensão verifica os vídeos, seus identificadores na playlist e a sequência planejada. Se o cliente do YouTube não oferecer o mecanismo necessário, ela tenta os menus nativos **Mover para o início** e **Mover para o fim**, quando disponíveis. Essa alternativa só é iniciada antes do envio de qualquer lote. Se ocorrer um erro depois que o envio começou, a extensão informa o problema e não repete a operação por outro caminho.
+---
 
-Durante a operação, a lista e o restante da página ficam bloqueados. Na tela da playlist, o fundo é opaco. Na tela de reprodução, o vídeo permanece visível e seus controles continuam funcionando: pausa, volume, busca e atalhos. O vídeo não precisa ser recarregado: a extensão não manda pausar, mudar seu ponto de reprodução ou alterar a velocidade.
-
-Se cancelar ou sair da página, os movimentos já salvos permanecem; uma solicitação que já foi enviada pode terminar antes da interrupção. Clique novamente no sentido desejado para concluir. Se o YouTube interromper o carregamento ou impedir uma alteração, a extensão mostra o problema.
-
-A extensão preserva trechos já ordenados para reduzir a quantidade de movimentos. Depois que a ordem foi salva, o YouTube cuida da reprodução sem depender da extensão.
-
-Se o YouTube não oferecer os comandos de mover, escolha **Manual** no seletor de ordenação da playlist e tente novamente.
-
-A extensão depende dos componentes da interface do YouTube; mudanças no site podem exigir uma atualização. Ela não baixa vídeos nem faz backups.
-
-## Consumo quando termina
-
-Após concluir ou interromper a organização, a extensão desconecta os observadores da lista e libera os dados temporários da operação. Não mantém intervalos ativos nem verificações periódicas da página. A ordenação volta a trabalhar quando você entra novamente no Assistir mais tarde ou usa um dos seus controles. O popup consulta o estado da tarefa somente enquanto estiver aberto e houver uma organização em andamento.
-
-Com a remoção de assistidos ligada, a extensão acompanha os eventos nativos do vídeo ativo, sem varrer a página. A medição de progresso para ao confirmar 80% assistido; temporizadores ficam restritos à transição, ao aviso de remoção e à confirmação. Desligar a opção remove os ouvintes de acompanhamento e os avisos pendentes.
-
-## Desenvolvimento
-
-```sh
-npm install
-npx playwright install chromium
-npm test
-node scripts/check.mjs
-node scripts/generate-icons.mjs
-node scripts/package.mjs
-```
-
-O ícone original está em `extension/icons/icon.svg`; os PNGs de 16, 32, 48 e 128 pixels são gerados a partir dele. O pacote de instalação é criado em `dist/` com apenas os arquivos da extensão. O nome do ZIP usa a versão do manifesto: `tubeorder-1.4.4.zip` na versão atual.
+<p align="center">
+  Feito pela <a href="https://allm4.com/">ALLM4</a>.<br />
+  <sub>Projeto independente, sem vínculo com YouTube, Google ou Microsoft.</sub>
+</p>
