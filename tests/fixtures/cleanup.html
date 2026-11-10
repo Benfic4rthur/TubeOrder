@@ -1,0 +1,120 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>TubeOrder cleanup fixture</title><style>
+body{background:#15151a;color:white;font:16px Arial;padding:20px}ytd-masthead,ytd-playlist-panel-renderer,ytd-playlist-panel-video-renderer{display:block}ytd-playlist-panel-video-renderer{height:64px}#movie_player{height:180px}video{width:320px;height:180px}button{padding:10px}
+</style></head><body>
+<ytd-masthead><button id="avatar-btn" aria-label="Menu da conta">Conta</button></ytd-masthead>
+<div id="movie_player"><video class="html5-main-video" muted></video></div>
+<a id="manual-next" class="ytp-next-button" href="/watch?v=next0000001&list=WL" role="button">Próximo manual</a><button id="unrelated-click">Outra ação manual</button>
+<ytd-playlist-panel-renderer><div id="header-contents"><div id="publisher-container"><span>1 / 2</span><span hidden>1 / 2</span></div></div><div id="contents"></div></ytd-playlist-panel-renderer>
+<script>
+(() => {
+  const OLD='old00000001', NEXT='next0000001', OTHER='other000001';
+  const nativeRemoval=new URLSearchParams(location.search).has('native');
+  const parameters=new URLSearchParams(location.search);
+  const playlist=parameters.has('three')?[OLD,NEXT,OTHER]:[OLD,NEXT];
+  const metadataDuration=id=>parameters.has('sameDuration')?100:id===OLD?100:id===NEXT?200:300;
+  const video=document.querySelector('video');
+  const player=document.getElementById('movie_player');
+  const state={id:OLD,duration:100,currentTime:0,paused:false,ended:false,ranges:[],bridgeError:false,src:`blob:fixture-${OLD}`};
+  const requests=[];
+  const results=[];
+  const nativeRequests=[];
+  for(const property of ['duration','currentTime','paused','ended']) Object.defineProperty(video,property,{configurable:true,get:()=>state[property],set:value=>{state[property]=value;}});
+  Object.defineProperty(video,'readyState',{get:()=>4});
+  Object.defineProperty(video,'currentSrc',{get:()=>state.src});
+  Object.defineProperty(video,'played',{get:()=>({length:state.ranges.length,start:index=>state.ranges[index][0],end:index=>state.ranges[index][1]})});
+  video.play=()=>{state.paused=false;return Promise.resolve();};
+  video.pause=()=>{state.paused=true;video.dispatchEvent(new Event('pause'));};
+  video.playbackRate=1.25;
+  player.getVideoData=()=>({video_id:state.id,title:'Fixture video',isLive:false,isUpcoming:false,isPlayable:true,length_seconds:String(metadataDuration(state.id))});
+  player.getPlaylist=()=>[...playlist];
+  player.getPlaylistId=()=>new URL(location.href).searchParams.get('list');
+  player.getPlaylistIndex=()=>playlist.indexOf(state.id);
+  player.getPlayerState=()=>state.ended?0:state.paused?2:1;
+  player.getCurrentTime=()=>state.currentTime;
+  player.getDuration=()=>state.duration;
+  const list=document.getElementById('contents');
+  document.getElementById('publisher-container').innerHTML=`<span>1 / ${playlist.length}</span><span hidden>1 / ${playlist.length}</span>`;
+  for(const id of playlist) {
+    const duration=metadataDuration(id);
+    const time=Math.floor(duration/60)+':'+String(duration%60).padStart(2,'0');
+    const row=document.createElement('ytd-playlist-panel-video-renderer');
+    row.dataset.id=id;
+    const setVideoId=`set-${id}`;
+    row.data={videoId:id,playlistSetVideoId:setVideoId,
+      menu:{menuRenderer:{items:[{menuServiceItemRenderer:{serviceEndpoint:{
+        commandMetadata:{webCommandMetadata:{sendPost:true,apiUrl:'/youtubei/v1/browse/edit_playlist'}},
+        playlistEditEndpoint:{playlistId:'WL',actions:[{action:'ACTION_REMOVE_VIDEO',setVideoId}],clientActions:[{playlistRemoveVideosAction:{setVideoIds:[setVideoId]}}]}
+      }}}]}}
+    };
+    row.innerHTML=`<a id="video-title" href="/watch?v=${id}&list=WL">${id}</a><ytd-thumbnail-overlay-time-status-renderer>${time}</ytd-thumbnail-overlay-time-status-renderer>`;
+    list.append(row);
+  }
+  const contents=()=>Array.from(list.children,row=>({playlistPanelVideoRenderer:row.data}));
+  let playbackData={playlistId:'WL',contents:contents()};
+  const playbackManager={getPlaylistData:()=>playbackData,setPlaylistData:data=>{playbackData=data;}};
+  const manager={listId:'WL',responsePlaylistData:{playlistId:'WL',contents:contents()},response:{playingVideoId:OLD},playlistProxy:{videoIds:[...playlist],pendingUpdates:[]},playbackManager};
+  if(nativeRemoval) {
+    window.default_kevlar_base={dg:()=>manager};
+    document.addEventListener('yt-action',event=>{
+      if(event.detail?.actionName!=='yt-service-request') return;
+      const endpoint=event.detail.args?.[1];
+      const edit=endpoint?.playlistEditEndpoint;
+      if(!edit||edit.playlistId!=='WL'||edit.actions?.length!==1||edit.actions[0].action!=='ACTION_REMOVE_VIDEO') return;
+      nativeRequests.push(structuredClone(edit));
+      event.detail.returnValue.push({ajaxPromise:new Promise(resolve=>setTimeout(()=>{
+        if(state.bridgeError){resolve({data:{status:'STATUS_FAILED'}});return;}
+        const setVideoId=edit.actions[0].setVideoId;
+        const row=Array.from(list.children).find(item=>item.data.playlistSetVideoId===setVideoId);
+        if(!row||row.data.videoId===state.id) throw new Error('Native fixture refuses to remove the currently playing video');
+        row.remove();
+        manager.responsePlaylistData={playlistId:'WL',contents:contents()};
+        playbackManager.setPlaylistData({playlistId:'WL',contents:contents()});
+        manager.playlistProxy.videoIds=Array.from(list.children,item=>item.data.videoId);
+        document.getElementById('publisher-container').innerHTML='<span>1 / 1</span><span hidden>1 / 1</span>';
+        resolve({data:{status:'STATUS_SUCCEEDED'}});
+      },35))});
+    });
+  }
+  window.addEventListener('tubeorder:remove-watched-request',event=>{
+    requests.push(structuredClone(event.detail));
+    if(nativeRemoval) return;
+    event.stopImmediatePropagation();
+    setTimeout(()=>window.dispatchEvent(new CustomEvent('tubeorder:remove-watched-result',{detail:{requestId:event.detail.requestId,type:state.bridgeError?'error':'done',videoId:event.detail.videoId,serverConfirmed:!state.bridgeError,queueConfirmed:!state.bridgeError,message:state.bridgeError?'Fixture removal failure':undefined}})),0);
+  },true);
+  window.addEventListener('tubeorder:remove-watched-result',event=>results.push(structuredClone(event.detail)));
+  function event(name){video.dispatchEvent(new Event(name,{bubbles:true}));}
+  function navigate({id=NEXT,listId='WL',playing=true,dataId=id,reuseMedia=false,deferURL=false,ad=false}={}) {
+    document.dispatchEvent(new Event('yt-navigate-start'));
+    const targetURL=`/watch?v=${id}&list=${listId}`;
+    if(deferURL) state.pendingURL=targetURL;
+    else history.pushState({},'',targetURL);
+    state.id=dataId;
+    state.paused=!playing;state.ended=false;
+    player.classList.toggle('ad-showing',ad);
+    if(!reuseMedia){
+      state.duration=ad?6:metadataDuration(dataId);state.currentTime=0;state.ranges=[];state.src=`blob:fixture-${id}${ad?'-ad':''}`;
+      event('emptied');event('loadstart');event('loadedmetadata');
+    }
+    manager.response.playingVideoId=dataId;
+    for(const row of list.children){row.data.selected=row.data.videoId===dataId;row.toggleAttribute('selected',row.data.selected);}
+    if(!deferURL) document.dispatchEvent(new Event('yt-navigate-finish'));
+    if(playing){event('play');event('playing');}
+  }
+  function finish(ranges=[[0,100]]) {
+    state.ranges=ranges;state.currentTime=100;state.duration=100;state.ended=true;state.paused=true;
+    event('timeupdate');event('ended');
+  }
+  const api={OLD,NEXT,OTHER,state,requests,results,nativeRequests,manager,playbackManager,event,navigate,finish,
+    finishNavigation(){history.pushState({},'',state.pendingURL);state.pendingURL=null;document.dispatchEvent(new Event('yt-navigate-finish'));},
+    finishAd(){player.classList.remove('ad-showing');state.duration=metadataDuration(state.id);state.currentTime=0;state.ranges=[];state.src=`blob:fixture-${state.id}`;state.paused=false;state.ended=false;event('emptied');event('loadstart');event('loadedmetadata');event('play');event('playing');},
+    watch(ranges=[[0,80]],currentTime=80){state.ranges=ranges;state.currentTime=currentTime;state.duration=metadataDuration(state.id);state.ended=false;state.paused=false;event('timeupdate');},
+    prime(){event('play');event('playing');event('timeupdate');},
+    almostFinish(){state.ranges=[[0,99.8]];state.currentTime=99.8;state.ended=false;event('timeupdate');},
+    pause(){state.paused=true;event('pause');},
+    setId(id){state.id=id;},
+    bridgeFail(){state.bridgeError=true;}
+  };
+  window.cleanupFixture=api;
+  document.getElementById('manual-next').addEventListener('click',event=>{event.preventDefault();navigate();});
+})();
+</script></body></html>

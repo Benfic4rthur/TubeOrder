@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>Assistir mais tarde - YouTube</title>
+<style>
+body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}ytd-masthead{display:block;position:fixed;top:0;left:0;right:0;height:56px;background:#161616;z-index:1000}#avatar-btn{float:right;margin:12px}ytd-playlist-header-renderer,ytd-playlist-video-list-renderer,ytd-playlist-video-renderer,ytd-playlist-panel-renderer,ytd-playlist-panel-video-renderer,ytd-thumbnail-overlay-time-status-renderer{display:block}ytd-playlist-video-renderer,ytd-playlist-panel-video-renderer{height:80px;padding:12px;box-sizing:border-box;border-bottom:1px solid #444}a{color:white}#menu{float:right}ytd-menu-popup-renderer{position:fixed;right:24px;top:120px;z-index:2000;background:#333;padding:16px}ytd-menu-service-item-renderer{display:block;padding:14px;cursor:pointer}ytd-continuation-item-renderer{display:block;height:80px;background:#222}
+</style></head>
+<body>
+<ytd-masthead id="masthead"><button id="avatar-btn" aria-label="Menu da conta"><img alt="Imagem do avatar"></button></ytd-masthead>
+<ytd-browse page-subtype="playlist"><ytd-playlist-header-renderer><h1>Assistir mais tarde</h1><div id="stats"><yt-formatted-string id="total"></yt-formatted-string></div></ytd-playlist-header-renderer><ytd-playlist-video-list-renderer><div id="contents"></div></ytd-playlist-video-list-renderer></ytd-browse>
+<script>
+(() => {
+  const parameters = new URLSearchParams(location.search);
+  const large = parameters.has('large');
+  const noLogin = parameters.has('signedout');
+  const blocked = parameters.has('blocked');
+  const slow = parameters.has('slow');
+  const gap = parameters.has('gap');
+  const batch = parameters.has('batch');
+  const batchError = parameters.has('batcherror');
+  const watchPanel = parameters.has('watchpanel');
+  const rowTag = watchPanel ? 'ytd-playlist-panel-video-renderer' : 'ytd-playlist-video-renderer';
+  const videos = large
+    ? Array.from({length: 157}, (_, i) => ({id:`video${String(i).padStart(6,'0')}`,duration:((157-i)%60)+':'+String((i*7)%60).padStart(2,'0')}))
+    : [{id:'long0000001',duration:'1:02:03'}, {id:'short000001',duration:'0:45'}, {id:'medium00001',duration:'9:40'}, {id:'private0001',duration:''}, {id:'tie00000001',duration:'9:40'}];
+  if (parameters.has('sorted')) videos.sort((a,b)=>{
+    const seconds=s=>s ? s.split(':').reduce((n,v)=>n*60+Number(v),0) : Infinity;
+    return seconds(a.duration)-seconds(b.duration);
+  });
+  window.fixtureVideos = videos;
+  if (gap) videos.forEach((video,index)=>{const seconds=index+1;video.duration=Math.floor(seconds/60)+':'+String(seconds%60).padStart(2,'0');});
+  window.fixtureMoves = [];
+  window.fixtureBatchCalls = [];
+  window.fixtureDropCalls = [];
+  window.fixtureVideoState = {pauseCalls:0,playCalls:0};
+  if (noLogin) document.querySelector('#avatar-btn').remove();
+  if (watchPanel) {
+    const original=document.querySelector('ytd-playlist-video-list-renderer');
+    const panel=document.createElement('ytd-playlist-panel-renderer');
+    const header=document.createElement('div');header.id='header-contents';
+    const title=document.createElement('h3');title.textContent='Assistir mais tarde';
+    const publisher=document.createElement('div');publisher.id='publisher-container';
+    publisher.innerHTML=`<span>1 / ${videos.length}</span><span aria-hidden="true" style="display:none">1 / ${videos.length}</span>`;
+    header.append(title,publisher);
+    const contents=document.createElement('div');contents.id='contents';
+    if (parameters.has('nestedscroll')) contents.style.cssText='height:160px;overflow-y:auto;scroll-behavior:smooth;';
+    panel.append(header,contents);
+    original.replaceWith(panel);
+    if(parameters.has('nestedscroll')) {
+      document.body.style.minHeight='2000px';
+      panel.style.cssText='position:fixed;top:90px;right:16px;width:450px;';
+      window.scrollTo({top:180,behavior:'instant'});
+    }
+    const player=document.createElement('div');player.id='movie_player';
+    const video=document.createElement('video');video.className='html5-main-video';
+    let paused=false;
+    Object.defineProperty(video,'paused',{get:()=>paused});
+    video.currentTime=42;video.playbackRate=1.25;
+    video.pause=()=>{paused=true;window.fixtureVideoState.pauseCalls+=1;};
+    video.play=()=>{paused=false;window.fixtureVideoState.playCalls+=1;return Promise.resolve();};
+    player.append(video);panel.before(player);
+  }
+  const list = document.querySelector('#contents');
+  const saved = JSON.parse(localStorage.getItem('fixture-order') || 'null');
+  const order = saved && saved.length === videos.length ? saved : videos.map(v=>v.id);
+  document.querySelector('#total').textContent = `${videos.length} vídeos`;
+  let loaded = 0;
+  let pending = false;
+  let observer;
+  let manager;
+  function panelContents() {
+    return Array.from(list.querySelectorAll(rowTag),row=>({playlistPanelVideoRenderer:row.data}));
+  }
+  if(watchPanel&&batch) {
+    const proxy={listId:'WL',videoIds:[],pendingUpdates:[],currentUpdateRequest:undefined,currentRefreshRequest:undefined};
+    manager={listId:'WL',responsePlaylistData:{playlistId:'WL',contents:[]},playlistProxy:proxy};
+    window.default_kevlar_base={dg:()=>manager};
+    function processUpdates() {
+      if(proxy.currentUpdateRequest||!proxy.pendingUpdates.length) return;
+      const update=proxy.pendingUpdates[0];
+      proxy.currentUpdateRequest=new Promise((resolve,reject)=>{
+        setTimeout(()=>{
+          if(batchError) {
+            proxy.pendingUpdates.length=0;
+            proxy.currentUpdateRequest=undefined;
+            reject(new Error('Fixture native watch failure'));
+            return;
+          }
+          localStorage.setItem('fixture-order',JSON.stringify(update.ids));
+          localStorage.setItem('fixture-watch-save-total',String(Number(localStorage.getItem('fixture-watch-save-total')||0)+1));
+          proxy.pendingUpdates.shift();
+          proxy.currentUpdateRequest=undefined;
+          if(proxy.pendingUpdates.length) processUpdates();
+          else proxy.currentRefreshRequest=new Promise(refreshResolve=>{
+            setTimeout(()=>{
+              proxy.currentRefreshRequest=undefined;
+              refreshResolve({playlistPanelRenderer:{playlistId:'WL',contents:panelContents()}});
+            },25);
+          });
+          resolve({status:'STATUS_SUCCEEDED'});
+        },35);
+      });
+    }
+    document.querySelector('ytd-playlist-panel-renderer').polymerController={
+      handleDrop({currDragItem}) {
+        if(!currDragItem||!list.contains(currDragItem)) throw new Error('Fixture expects a connected current drag item');
+        const model=Array.from(list.querySelectorAll(rowTag),row=>row.dataset.id);
+        window.fixtureDropCalls.push({id:currDragItem.dataset.id,ids:[...model]});
+        manager.responsePlaylistData.contents=panelContents();
+        if(parameters.has('nestedscroll')) list.scrollTo({top:list.scrollHeight,behavior:'instant'});
+        proxy.videoIds=[...model];
+        proxy.pendingUpdates.push({ids:[...model]});
+        processUpdates();
+      }
+    };
+  }
+  function makeRow(video) {
+    const row = document.createElement(rowTag);
+    row.dataset.id = video.id;
+    row.innerHTML = `<a id="video-title" href="/watch?v=${video.id}&list=WL&index=${order.indexOf(video.id)+1}">Vídeo ${video.id}</a><ytd-thumbnail-overlay-time-status-renderer><span id="text">${video.duration}</span></ytd-thumbnail-overlay-time-status-renderer><div id="menu"><button aria-label="Menu de ações">⋮</button></div>`;
+    if (batch) row.data = {
+      videoId:video.id, ...(watchPanel ? {playlistSetVideoId:`set-${video.id}`} : {setVideoId:`set-${video.id}`}),
+      menu:{menuRenderer:{items:[{menuServiceItemRenderer:{serviceEndpoint:{
+        commandMetadata:{webCommandMetadata:{sendPost:true,apiUrl:'/youtubei/v1/browse/edit_playlist'}},
+        playlistEditEndpoint:{playlistId:'WL',actions:[{action:'ACTION_MOVE_VIDEO_AFTER',setVideoId:`set-${video.id}`}]}
+      }}}]}}
+    };
+    row.querySelector('button').addEventListener('click', () => openMenu(video.id));
+    return row;
+  }
+  function save() {
+    localStorage.setItem('fixture-order', JSON.stringify(Array.from(list.querySelectorAll(rowTag), row=>row.dataset.id)));
+  }
+  if (batch) document.addEventListener('yt-action',event=>{
+    if (event.detail?.actionName !== 'yt-service-request') return;
+    const endpoint=event.detail.args?.[1];
+    const edit=endpoint?.playlistEditEndpoint;
+    if (!edit || edit.playlistId!=='WL') return;
+    window.fixtureBatchCalls.push(structuredClone(edit.actions));
+    localStorage.setItem('fixture-batch-total', String(Number(localStorage.getItem('fixture-batch-total')||0)+1));
+    event.detail.returnValue ||= [];
+    if (batchError) {
+      event.detail.returnValue[0]={ajaxPromise:Promise.resolve({data:{status:'STATUS_FAILED',error:{message:'Fixture native failure'}}})};
+      return;
+    }
+    const model=Array.from(list.querySelectorAll(rowTag),row=>row.dataset.id);
+    for (const action of edit.actions) {
+      if (action.action!=='ACTION_MOVE_VIDEO_AFTER') throw new Error(`Unsupported fixture action: ${action.action}`);
+      const id=action.setVideoId?.replace(/^set-/,'');
+      const index=model.indexOf(id);
+      if(index<0) throw new Error('Fixture received unknown video');
+      model.splice(index,1);
+      const predecessor=action.movedSetVideoIdPredecessor?.replace(/^set-/,'');
+      const predecessorIndex=predecessor ? model.indexOf(predecessor) : -1;
+      if(predecessor && predecessorIndex<0) throw new Error('Fixture received unknown predecessor');
+      model.splice(predecessorIndex+1,0,id);
+    }
+    if(watchPanel) localStorage.setItem('fixture-order',JSON.stringify(model));
+    else {
+      list.replaceChildren(...model.map(id=>makeRow(videos.find(video=>video.id===id))));
+      save();
+    }
+    event.detail.returnValue[0]={ajaxPromise:Promise.resolve({data:{status:'STATUS_SUCCEEDED'}})};
+  });
+  function openMenu(id) {
+    document.querySelector('ytd-menu-popup-renderer')?.remove();
+    const popup = document.createElement('ytd-menu-popup-renderer');
+    popup.setAttribute('role','menu');
+    for (const [edge,label] of [['top','Mover para o início'],['bottom','Mover para o fim']]) {
+      const item = document.createElement('ytd-menu-service-item-renderer');
+      item.setAttribute('role','menuitem');
+      item.innerHTML=`<yt-formatted-string>${label}</yt-formatted-string>`;
+      item.addEventListener('click', () => {
+        popup.remove();
+        window.fixtureMoves.push({id,edge});
+        if (blocked) return;
+        setTimeout(() => {
+          const row = list.querySelector(`[data-id="${id}"]`);
+          if (!row) return;
+          if (edge === 'top') list.prepend(row);
+          else list.append(row);
+          save();
+        }, slow ? 2000 : 35);
+      });
+      popup.append(item);
+    }
+    document.body.append(popup);
+  }
+  function nextPage() {
+    if (pending) return;
+    pending = true;
+    if (gap) document.querySelector('ytd-continuation-item-renderer')?.remove();
+    setTimeout(() => {
+      document.querySelector('ytd-continuation-item-renderer')?.remove();
+      const end = Math.min(loaded + 40, order.length);
+      for (const id of order.slice(loaded,end)) list.append(makeRow(videos.find(v=>v.id===id)));
+      loaded = end;
+      if(manager) {
+        manager.responsePlaylistData.contents=panelContents();
+        manager.playlistProxy.videoIds=Array.from(list.querySelectorAll(rowTag),row=>row.dataset.id);
+      }
+      pending = false;
+      if (loaded < order.length) {
+        const continuation = document.createElement('ytd-continuation-item-renderer');
+        continuation.textContent='Carregando…';
+        const trigger=document.createElement('div');trigger.id='trigger';continuation.append(trigger);
+        list.append(continuation);
+        observer ||= new IntersectionObserver(entries => {
+          for (const entry of entries) if (entry.isIntersecting) nextPage();
+        });
+        observer.observe(continuation);
+      }
+    }, gap ? 1700 : large ? 80 : 0);
+  }
+  nextPage();
+})();
+</script></body></html>

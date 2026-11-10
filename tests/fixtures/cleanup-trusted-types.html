@@ -1,0 +1,28 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>TubeOrder Trusted Types fixture</title><style>
+body{background:#15151a;color:white;font:16px Arial;padding:20px}ytd-masthead,ytd-playlist-panel-renderer,ytd-playlist-panel-video-renderer{display:block}ytd-playlist-panel-video-renderer{height:64px}video{width:320px;height:180px}
+</style></head><body>
+<ytd-masthead><button id="avatar-btn" aria-label="Menu da conta">Conta</button></ytd-masthead>
+<div id="movie_player"><video class="html5-main-video" muted></video></div>
+<ytd-playlist-panel-renderer><div id="header-contents"><div id="publisher-container"><span>1 / 2</span><span hidden>1 / 2</span></div></div><div id="contents">
+<ytd-playlist-panel-video-renderer data-id="old00000001"><a id="video-title" href="/watch?v=old00000001&list=WL">Primeiro vídeo</a><ytd-thumbnail-overlay-time-status-renderer>1:40</ytd-thumbnail-overlay-time-status-renderer></ytd-playlist-panel-video-renderer>
+<ytd-playlist-panel-video-renderer data-id="next0000001"><a id="video-title" href="/watch?v=next0000001&list=WL">Segundo vídeo</a><ytd-thumbnail-overlay-time-status-renderer>3:20</ytd-thumbnail-overlay-time-status-renderer></ytd-playlist-panel-video-renderer>
+</div></ytd-playlist-panel-renderer>
+<script>
+(() => {
+  const video=document.querySelector('video');
+  const player=document.getElementById('movie_player');
+  Object.defineProperties(video,{
+    duration:{get:()=>100},currentTime:{get:()=>0},paused:{get:()=>true},ended:{get:()=>false},readyState:{get:()=>4},
+    currentSrc:{get:()=> 'blob:trusted-types-fixture'},played:{get:()=>({length:0,start:()=>0,end:()=>0})}
+  });
+  video.play=()=>Promise.resolve();video.pause=()=>{};
+  player.getVideoData=()=>({video_id:'old00000001',length_seconds:'100',isLive:false});
+  player.getPlaylist=()=>['old00000001','next0000001'];player.getPlaylistIndex=()=>0;player.getPlayerState=()=>2;
+  for(const row of document.querySelectorAll('ytd-playlist-panel-video-renderer')) row.data={videoId:row.dataset.id,playlistSetVideoId:`set-${row.dataset.id}`};
+  const state={requests:[],nativeRequests:[],settings:undefined,prime(){video.dispatchEvent(new Event('playing',{bubbles:true}));}};
+  window.cleanupFixture=state;
+  window.addEventListener('tubeorder:cleanup-settings',event=>{state.settings=event.detail.enabled;});
+  window.addEventListener('tubeorder:remove-watched-request',event=>{state.requests.push(structuredClone(event.detail));event.stopImmediatePropagation();},true);
+  document.addEventListener('yt-action',event=>{state.nativeRequests.push(event.detail?.actionName);event.stopImmediatePropagation();},true);
+})();
+</script></body></html>

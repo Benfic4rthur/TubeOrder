@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+dist/
+test-results*/
+playwright-report/
+previews/
+site-tubeorder/
+.env*
+*.pem
+*.log

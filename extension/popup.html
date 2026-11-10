@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TubeOrder</title>
+  <link rel="icon" href="icons/icon32.png">
+  <link rel="stylesheet" href="popup.css">
+  <script src="ui.js" defer></script>
+  <script src="popup.js" defer></script>
+</head>
+<body>
+  <main id="app"></main>
+  <section class="settings" aria-label="Preferências do Assistir mais tarde">
+    <label class="cleanup-option" for="remove-watched">
+      <input id="remove-watched" type="checkbox" checked disabled aria-label="Remover vídeos assistidos" aria-describedby="remove-watched-description remove-watched-scope">
+      <span>
+        <strong>Remover vídeos assistidos</strong>
+        <small id="remove-watched-description">Após 80% assistido, avisa antes de remover.</small>
+        <small id="remove-watched-scope">Somente no Assistir mais tarde.</small>
+      </span>
+    </label>
+    <p id="remove-watched-error" class="setting-error" role="status" aria-live="polite" hidden></p>
+  </section>
+  <footer id="open-section" hidden>
+    <button id="open-playlist" type="button">Abrir Assistir mais tarde <span aria-hidden="true">↗</span></button>
+    <p>Já estava com a página aberta? Atualize-a após instalar a extensão.</p>
+  </footer>
+</body>
+</html>

@@ -1,0 +1,59 @@
+{
+  "manifest_version": 3,
+  "name": "TubeOrder — Assistir mais tarde em ordem",
+  "short_name": "TubeOrder",
+  "version": "1.4.4",
+  "description": "Organiza de verdade o Assistir mais tarde pela duração. Um clique, e o YouTube reproduz na ordem certa.",
+  "permissions": [
+    "storage"
+  ],
+  "action": {
+    "default_title": "TubeOrder — Organizar por duração",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*"
+      ],
+      "js": [
+        "batch.js",
+        "removal.js",
+        "cleanup-ui.js",
+        "cleanup.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.youtube.com/*"
+      ],
+      "js": [
+        "core.js",
+        "ui.js",
+        "sidebar.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
