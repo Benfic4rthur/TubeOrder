@@ -9,6 +9,9 @@
     if (style?.isConnected) return;
     style = document.createElement("style");
     style.textContent = `
+      .tubeorder-row-byline { display:flex!important;flex-direction:row!important;align-items:center!important;flex-wrap:nowrap!important;min-width:0; }
+      .tubeorder-row-byline > :not(button) { min-width:0;flex-shrink:1; }
+      .tubeorder-row-byline > .tubeorder-remove { align-self:center!important; }
       .tubeorder-remove { display:inline-flex!important;box-sizing:border-box;inline-size:max-content!important;min-inline-size:0!important;max-inline-size:100%!important;align-self:flex-start!important;justify-self:start!important;align-items:center;justify-content:center;vertical-align:middle;flex:none;order:2;margin-inline-start:5px;padding:2px 7px;min-height:22px;border:1px solid #c5aaff40;border-radius:12px;background:#c5aaff12;color:#dfcffb;font:600 10px/1.4 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;white-space:nowrap; }
       .tubeorder-remove:hover:not(:disabled) { background:#c5aaff2c; }
       .tubeorder-remove:disabled { opacity:.6;cursor:default; }
@@ -57,7 +60,7 @@
   function sync(videos) {
     ensureStyle();
     const activeRows = new Set(videos.map(video => video.row));
-    for (const [row, entry] of mounted) if (!activeRows.has(row) || !row.isConnected) { entry.button.remove(); mounted.delete(row); }
+    for (const [row, entry] of mounted) if (!activeRows.has(row) || !row.isConnected) { entry.button.remove(); entry.host?.classList.remove("tubeorder-row-byline"); mounted.delete(row); }
     for (const { row, id } of videos) {
       if (!id || id.startsWith("unavailable-")) continue;
       let entry = mounted.get(row);
@@ -69,15 +72,19 @@
       }
       entry.id = id;
       if (!entry.button.isConnected) {
+        const byline = row.querySelector("#byline-container") || row.querySelector("ytd-channel-name") || row.querySelector("#byline");
+        entry.host?.classList.remove("tubeorder-row-byline");
+        entry.host = byline;
+        byline?.classList.add("tubeorder-row-byline");
         const block = [...row.querySelectorAll("button")].find(button => button !== entry.button && /bloquear/i.test(button.textContent || button.getAttribute("aria-label") || ""));
         if (block) block.insertAdjacentElement("afterend", entry.button);
-        else (row.querySelector("#byline-container, #video-info, #meta") || row).appendChild(entry.button);
+        else (byline || row.querySelector("#video-info") || row.querySelector("#meta") || row).appendChild(entry.button);
       }
     }
   }
 
   function destroy() {
-    for (const entry of mounted.values()) entry.button.remove();
+    for (const entry of mounted.values()) { entry.button.remove(); entry.host?.classList.remove("tubeorder-row-byline"); }
     mounted.clear();
     for (const item of pending.values()) clearTimeout(item.timer);
     pending.clear(); clearToast(); style?.remove(); style = null;

@@ -40,6 +40,10 @@ Executar `npm test` para testes unitários e de navegador. Os testes usam o Chro
 - O preview do aviso usa o mesmo botão Não apagar, mas seu caminho de expiração nunca envia pedidos de remoção, inclusive com reprodução pausada.
 - CSP com `require-trusted-types-for 'script'`: o preview permanece visível e o botão Não apagar funciona com a remoção desligada, sem exceções nem pedidos de remoção.
 
+## Versão 1.5.2 — 11 de novembro de 2026
+
+Cinco testes de navegador direcionados à remoção passaram, além da verificação do manifesto, 17 referências, ícones e sintaxe JavaScript. A fixture inclui o bloco de metadados ao redor do nome do canal, como no YouTube. Os testes conferem que Remover pertence à linha do canal, fica à direita do nome e tem o mesmo centro vertical, tanto sem Bloquear desde o início como após sua remoção. A confirmação de exclusão, a persistência após recarregar, a recusa do servidor e a reprodução preservada continuam cobertas.
+
 ## Versão 1.5.1 — 11 de novembro de 2026
 
 Cinco testes de navegador direcionados à remoção passaram, além da verificação do manifesto, 17 referências, ícones e sintaxe JavaScript. As duas regressões novas reproduzem a ausência inicial de Bloquear e sua remoção de uma linha já aberta. Em ambos os casos, Remover permanece compacto, sem duplicação. A exclusão sem Bloquear é confirmada pelo transporte nativo simulado e continua válida após recarregar. Sucesso, falha do servidor, reprodução e página da playlist também foram conferidos nos testes direcionados.

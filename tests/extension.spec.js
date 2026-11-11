@@ -273,7 +273,7 @@ test('Remover mantém o item e mostra a falha quando o servidor recusa',async()=
   await page.close();
 });
 
-test('Remover continua compacto e salva a exclusão sem nenhum botão Bloquear',async()=>{
+test('Remover fica ao lado do canal e salva a exclusão sem nenhum botão Bloquear',async()=>{
   await worker.evaluate(()=>chrome.storage.local.set({removeWatched:false}));
   const page=await context.newPage();
   await page.goto('https://www.youtube.com/watch?v=short000001&list=WL&watchpanel=1&batch=1&noblock=1');
@@ -282,6 +282,10 @@ test('Remover continua compacto e salva a exclusão sem nenhum botão Bloquear',
   const remove=row.getByRole('button',{name:'Remover do Assistir mais tarde',exact:true});
   await expect(row.getByRole('button',{name:'Bloquear',exact:true})).toHaveCount(0);
   const dimensions=await remove.boundingBox();
+  const channel=await row.locator('.fixture-channel-name').boundingBox();
+  expect(await remove.evaluate(button=>button.parentElement.id)).toBe('byline-container');
+  expect(Math.abs(dimensions.y+dimensions.height/2-channel.y-channel.height/2)).toBeLessThanOrEqual(2);
+  expect(dimensions.x).toBeGreaterThanOrEqual(channel.x+channel.width);
   await remove.click();
   await expect(page.locator('#tubeorder-action-result')).toContainText('Vídeo removido');
   expect(await page.evaluate(()=>fixtureRemoveCalls)).toEqual([[{action:'ACTION_REMOVE_VIDEO',setVideoId:'set-long0000001'}]]);
@@ -305,6 +309,9 @@ test('esconder Bloquear em uma linha existente não estica nem duplica Remover',
   const remove=row.getByRole('button',{name:'Remover do Assistir mais tarde',exact:true});
   await expect(remove).toHaveCount(1);
   const bounds=await remove.boundingBox();
+  const channel=await row.locator('.fixture-channel-name').boundingBox();
+  expect(Math.abs(bounds.y+bounds.height/2-channel.y-channel.height/2)).toBeLessThanOrEqual(2);
+  expect(bounds.x).toBeGreaterThanOrEqual(channel.x+channel.width);
   expect(bounds.width).toBeLessThan(100);
   expect(bounds.height).toBeLessThanOrEqual(26);
   await page.close();
