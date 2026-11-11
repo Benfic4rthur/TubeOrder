@@ -35,6 +35,9 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
   window.fixtureBatchCalls = [];
   window.fixtureDropCalls = [];
   window.fixtureRemoveCalls = [];
+  window.fixtureSaveCalls = [];
+  window.fixtureRecommendationScans = 0;
+  window.addEventListener('tubeorder:recommendations-scan',()=>window.fixtureRecommendationScans++);
   window.fixtureVideoState = {pauseCalls:0,playCalls:0};
   if (noLogin) document.querySelector('#avatar-btn').remove();
   if (watchPanel) {
@@ -64,6 +67,7 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
     player.append(video);panel.before(player);
     player.getVideoData=()=>({video_id:new URL(location.href).searchParams.get('v'),isLive:false});
     player.getPlayerState=()=>video.paused?2:1;
+    player.getPlaylist=()=>[...videos.map(video=>video.id),...(window.fixtureHiddenPlaylistIds||[])];
   }
   const list = document.querySelector('#contents');
   const saved = JSON.parse(localStorage.getItem('fixture-order') || 'null');
@@ -147,6 +151,15 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
     const endpoint=event.detail.args?.[1];
     const edit=endpoint?.playlistEditEndpoint;
     if (!edit || edit.playlistId!=='WL') return;
+    if(edit.actions?.length===1&&edit.actions[0].action==='ACTION_ADD_VIDEO') {
+      window.fixtureSaveCalls.push(structuredClone(edit.actions));
+      event.detail.returnValue.push({ajaxPromise:new Promise(resolve=>setTimeout(()=>{
+        if(parameters.has('saveerror')) {resolve({data:{status:'STATUS_FAILED'}});return;}
+        if(!parameters.has('saveambiguous')) window.fixtureAddVideo(edit.actions[0].addedVideoId,'0:20');
+        resolve({data:parameters.has('saveambiguous')?{}:{status:'STATUS_SUCCEEDED'}});
+      },parameters.has('slowsave')?500:35))});
+      return;
+    }
     if(edit.actions?.length===1&&edit.actions[0].action==='ACTION_REMOVE_VIDEO') {
       window.fixtureRemoveCalls.push(structuredClone(edit.actions));
       event.detail.returnValue.push({ajaxPromise:new Promise(resolve=>setTimeout(()=>{
@@ -223,6 +236,36 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
     if(manager)manager.responsePlaylistData.contents=panelContents();
     save();
   };
+  if(parameters.has('recommendations')) {
+    const related=document.createElement('div');related.id='related';document.body.append(related);
+    window.fixtureRecommend=(id='reco0000001',options={})=>{
+      const card=document.createElement(options.legacy?'ytd-compact-video-renderer':'yt-lockup-view-model');card.dataset.recommendation=id;
+      card.innerHTML=`<a href="/watch?v=${id}">Recomendado ${id}</a><div class="ytContentMetadataViewModelMetadataRow"><span>Canal recomendado</span>${options.block?'<button class="fixture-block">Bloquear</button>':''}</div>`;
+      const endpoint={commandMetadata:{webCommandMetadata:{sendPost:true,apiUrl:'/youtubei/v1/browse/edit_playlist'}},playlistEditEndpoint:{playlistId:options.wrongList?'LL':'WL',actions:options.saved?[{action:'ACTION_REMOVE_VIDEO',setVideoId:`set-${id}`}]:[{action:'ACTION_ADD_VIDEO',addedVideoId:options.wrongId?'wrong000001':id}]}};
+      if(options.legacy) {
+        card.data={videoId:id,thumbnailOverlays:[{thumbnailOverlayToggleButtonRenderer:{isToggled:!!options.saved,untoggledServiceEndpoint:{...endpoint,playlistEditEndpoint:{playlistId:'WL',actions:[{action:'ACTION_ADD_VIDEO',addedVideoId:id}]}},toggledServiceEndpoint:{playlistEditEndpoint:{playlistId:'WL',actions:[{action:'ACTION_REMOVE_VIDEO',setVideoId:`set-${id}`}]}}}}]};
+        if(options.watched)card.data.thumbnailOverlays.push({thumbnailOverlayResumePlaybackRenderer:{percentDurationWatched:options.watched}});
+      } else {
+        const data={contentId:id,contentType:'LOCKUP_CONTENT_TYPE_VIDEO',contentImage:{thumbnailViewModel:{overlays:options.watched?[{thumbnailBottomOverlayViewModel:{progressBar:{thumbnailOverlayProgressBarViewModel:{startPercent:options.watched}}}}]:[]}},metadata:{lockupMetadataViewModel:{menuButton:{buttonViewModel:{onTap:{innertubeCommand:{showSheetCommand:{panelLoadingStrategy:{inlineContent:{sheetViewModel:{content:{listViewModel:{listItems:[{listItemViewModel:{rendererContext:{commandContext:{onTap:{innertubeCommand:endpoint}}}}}]}}}}}}}}}}}}};
+        card.componentProps={data:()=>data};
+      }
+      if(options.domWatched) {
+        const progress=document.createElement('div');progress.className='ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment';progress.style.width='65%';card.append(progress);
+      }
+      related.append(card);return card;
+    };
+    fixtureRecommend('reco0000001',{block:true});
+    fixtureRecommend('legacy00001',{legacy:true});
+    fixtureRecommend('short000001');
+    fixtureRecommend('saved000001',{saved:true});
+    fixtureRecommend('saved000002',{legacy:true,saved:true});
+    fixtureRecommend('watched0001',{watched:100});
+    fixtureRecommend('partial0001',{watched:10});
+    fixtureRecommend('watched0002',{legacy:true,watched:80});
+    fixtureRecommend('watched0003',{domWatched:true});
+    fixtureRecommend('badcmd00001',{wrongList:true});
+    fixtureRecommend('badcmd00002',{wrongId:true});
+  }
   function nextPage() {
     if (pending) return;
     pending = true;

@@ -71,8 +71,16 @@ Se o YouTube não oferecer os comandos de mover, escolha **Manual** no seletor d
 
 A extensão depende dos componentes da interface do YouTube; mudanças no site podem exigir uma atualização. Ela não baixa vídeos nem faz backups.
 
+## Salvar recomendados no Assistir mais tarde
+
+Durante a reprodução de uma lista `WL`, os recomendados abaixo da fila têm um botão **+ Mais tarde** junto ao nome do canal. Ele usa o próprio comando do YouTube para incluir o vídeo na playlist da conta conectada, com um clique. A mensagem de sucesso exige confirmação do servidor; uma falha mantém a opção disponível e não cria tentativas automáticas. Ao entrar na fila, o vídeo segue a última regra de ordenação.
+
+O botão não aparece em vídeos que já estão na fila, que o comando nativo identifica como salvos, ou que apresentam marcações de assistido/progresso, inclusive parcial. A extensão confere novamente essas condições no clique. A ausência de marcação não é prova de que um vídeo nunca foi assistido: o YouTube pode omitir o histórico de um recomendado. O TubeOrder não consulta nem guarda seu histórico completo.
+
 ## Consumo quando termina
 
 Após concluir ou interromper a organização, a extensão libera os dados temporários da operação. Na tela de reprodução, mantém um observador somente dos filhos diretos da fila para detectar vídeos novos e disponibilizar os botões Remover; ele ignora alterações em miniaturas, texto e outros elementos. Na página da playlist, o observador é desconectado ao terminar. Não há intervalos ativos nem verificações periódicas da página. Os temporizadores de novas adições existem apenas durante o agrupamento daquela mudança. O popup consulta o estado da tarefa somente enquanto estiver aberto e houver uma organização em andamento.
+
+Os botões de salvar usam um observador restrito ao bloco de recomendados. Ele reage à entrada ou troca dos cards e às marcações de progresso; ignora animações de miniaturas, os próprios botões e mudanças fora desse bloco. Ao sair da reprodução do Assistir mais tarde, esse observador é desconectado e os botões são removidos. A confirmação de uma inclusão usa temporizador somente enquanto aquele pedido está em andamento.
 
 Com a remoção de assistidos ligada, a extensão acompanha os eventos nativos do vídeo ativo, sem varrer a página. A medição de progresso para ao confirmar 80% assistido; temporizadores ficam restritos à transição, ao aviso de remoção e à confirmação. Desligar a opção remove os ouvintes de acompanhamento e os avisos pendentes.

@@ -40,6 +40,14 @@ Executar `npm test` para testes unitários e de navegador. Os testes usam o Chro
 - O preview do aviso usa o mesmo botão Não apagar, mas seu caminho de expiração nunca envia pedidos de remoção, inclusive com reprodução pausada.
 - CSP com `require-trusted-types-for 'script'`: o preview permanece visível e o botão Não apagar funciona com a remoção desligada, sem exceções nem pedidos de remoção.
 
+## Versão 1.6.0 — 11 de novembro de 2026
+
+Passaram **4 testes unitários e 65 testes de navegador**, incluindo nove casos novos de inclusão de recomendados. Manifesto, 19 referências, ícones e sintaxe JavaScript também passaram.
+
+Os testes executam a extensão real com o transporte nativo do YouTube simulado. Conferem o comando exato `ACTION_ADD_VIDEO` para `WL`, a entrada na fila ordenada, a persistência ao recarregar, os renderizadores modernos e legados, os itens já salvos (inclusive fora das linhas renderizadas), as marcações de assistido/progresso parcial, os cards reciclados, a prevenção de pedidos duplicados e a recusa de respostas ambíguas ou com falha. Também conferem a ausência de comandos ao player, a desmontagem ao sair por SPA e o estado ocioso sem varreduras periódicas ou reação às animações de miniaturas.
+
+No Edge, a versão 1.6.0 foi aplicada e os novos botões apareceram nos recomendados reais. Uma inclusão pelo botão colocou um recomendado de tecnologia na fila lateral e retirou sua opção de salvar. Uma nova abertura do Assistir mais tarde confirmou a persistência no YouTube e a ordem salva. Os testes de remoção continuam usando playlists simuladas.
+
 ## Versão 1.5.2 — 11 de novembro de 2026
 
 Cinco testes de navegador direcionados à remoção passaram, além da verificação do manifesto, 17 referências, ícones e sintaxe JavaScript. A fixture inclui o bloco de metadados ao redor do nome do canal, como no YouTube. Os testes conferem que Remover pertence à linha do canal, fica à direita do nome e tem o mesmo centro vertical, tanto sem Bloquear desde o início como após sua remoção. A confirmação de exclusão, a persistência após recarregar, a recusa do servidor e a reprodução preservada continuam cobertas.
