@@ -273,6 +273,43 @@ test('Remover mantém o item e mostra a falha quando o servidor recusa',async()=
   await page.close();
 });
 
+test('Remover continua compacto e salva a exclusão sem nenhum botão Bloquear',async()=>{
+  await worker.evaluate(()=>chrome.storage.local.set({removeWatched:false}));
+  const page=await context.newPage();
+  await page.goto('https://www.youtube.com/watch?v=short000001&list=WL&watchpanel=1&batch=1&noblock=1');
+  await phase(page,'done');
+  const row=page.locator('[data-id="long0000001"]');
+  const remove=row.getByRole('button',{name:'Remover do Assistir mais tarde',exact:true});
+  await expect(row.getByRole('button',{name:'Bloquear',exact:true})).toHaveCount(0);
+  const dimensions=await remove.boundingBox();
+  await remove.click();
+  await expect(page.locator('#tubeorder-action-result')).toContainText('Vídeo removido');
+  expect(await page.evaluate(()=>fixtureRemoveCalls)).toEqual([[{action:'ACTION_REMOVE_VIDEO',setVideoId:'set-long0000001'}]]);
+  await expect(row).toHaveCount(0);
+  await page.reload();await phase(page,'done');
+  await expect(page.locator('[data-id="long0000001"]')).toHaveCount(0);
+  expect(dimensions.width).toBeLessThan(100);
+  expect(dimensions.height).toBeLessThanOrEqual(26);
+  await page.close();
+});
+
+test('esconder Bloquear em uma linha existente não estica nem duplica Remover',async()=>{
+  const page=await context.newPage();
+  await page.goto('https://www.youtube.com/watch?v=short000001&list=WL&watchpanel=1&batch=1');
+  await phase(page,'done');
+  const row=page.locator('[data-id="long0000001"]');
+  await row.evaluate(node=>{
+    node.querySelector('.fixture-block').remove();
+    node.querySelector('#byline-container').style.cssText='display:flex;flex-direction:column;align-items:stretch;width:280px';
+  });
+  const remove=row.getByRole('button',{name:'Remover do Assistir mais tarde',exact:true});
+  await expect(remove).toHaveCount(1);
+  const bounds=await remove.boundingBox();
+  expect(bounds.width).toBeLessThan(100);
+  expect(bounds.height).toBeLessThanOrEqual(26);
+  await page.close();
+});
+
 test('navegação SPA ativa os controles somente ao entrar no Assistir mais tarde', async () => {
   const page=await context.newPage();
   const errors=[];

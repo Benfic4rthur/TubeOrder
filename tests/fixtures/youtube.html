@@ -124,7 +124,8 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
   function makeRow(video) {
     const row = document.createElement(rowTag);
     row.dataset.id = video.id;
-    row.innerHTML = `<a id="video-title" href="/watch?v=${video.id}&list=WL&index=${order.indexOf(video.id)+1}">Vídeo ${video.id}</a><ytd-thumbnail-overlay-time-status-renderer><span id="text">${video.duration}</span></ytd-thumbnail-overlay-time-status-renderer><span id="byline-container">Canal de exemplo <button class="fixture-block">Bloquear</button></span><div id="menu"><button aria-label="Menu de ações">⋮</button></div>`;
+    const withoutBlock=parameters.has('noblock');
+    row.innerHTML = `<a id="video-title" href="/watch?v=${video.id}&list=WL&index=${order.indexOf(video.id)+1}">Vídeo ${video.id}</a><ytd-thumbnail-overlay-time-status-renderer><span id="text">${video.duration}</span></ytd-thumbnail-overlay-time-status-renderer><span id="byline-container"${withoutBlock?' style="display:flex;flex-direction:column;align-items:stretch;width:280px"':''}>Canal de exemplo ${withoutBlock?'':'<button class="fixture-block">Bloquear</button>'}</span><div id="menu"><button aria-label="Menu de ações">⋮</button></div>`;
     if (batch) row.data = {
       videoId:video.id, ...(watchPanel ? {playlistSetVideoId:`set-${video.id}`} : {setVideoId:`set-${video.id}`}),
       menu:{menuRenderer:{items:[{menuServiceItemRenderer:{serviceEndpoint:{

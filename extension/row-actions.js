@@ -9,7 +9,7 @@
     if (style?.isConnected) return;
     style = document.createElement("style");
     style.textContent = `
-      .tubeorder-remove { display:inline-flex!important;align-items:center;justify-content:center;vertical-align:middle;flex:none;order:2;margin-inline-start:5px;padding:2px 7px;min-height:22px;border:1px solid #c5aaff40;border-radius:12px;background:#c5aaff12;color:#dfcffb;font:600 10px/1.4 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;white-space:nowrap; }
+      .tubeorder-remove { display:inline-flex!important;box-sizing:border-box;inline-size:max-content!important;min-inline-size:0!important;max-inline-size:100%!important;align-self:flex-start!important;justify-self:start!important;align-items:center;justify-content:center;vertical-align:middle;flex:none;order:2;margin-inline-start:5px;padding:2px 7px;min-height:22px;border:1px solid #c5aaff40;border-radius:12px;background:#c5aaff12;color:#dfcffb;font:600 10px/1.4 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;white-space:nowrap; }
       .tubeorder-remove:hover:not(:disabled) { background:#c5aaff2c; }
       .tubeorder-remove:disabled { opacity:.6;cursor:default; }
       .tubeorder-remove:focus-visible { outline:2px solid #d9c3ff;outline-offset:2px; }
