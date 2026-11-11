@@ -5,17 +5,21 @@
 ## Como usar
 
 1. Abra o YouTube com sua conta conectada e entre em [Assistir mais tarde](https://www.youtube.com/playlist?list=WL), ou abra um vídeo dessa playlist com `list=WL` na URL. A TubeOrder organiza automaticamente ao entrar em uma dessas telas, usando a última ordem escolhida neste navegador. Na primeira utilização, organiza dos mais curtos para os mais longos.
-2. Para trocar a ordem, use **Curtos primeiro** ou **Longos primeiro** na faixa roxa compacta. Na página da playlist, ela fica ao lado do seletor **Manual**; durante a reprodução, fica no cabeçalho da playlist lateral, junto ao nome do dono da playlist e à contagem de vídeos. Você também pode clicar no ícone roxo da TubeOrder na barra do navegador e escolher **Mais curtos primeiro** ou **Mais longos primeiro**. A escolha fica salva para as próximas entradas.
+2. Para trocar a ordem, use **Curtos primeiro** ou **Longos primeiro** na faixa roxa compacta. O botão **Reorganizar**, antes deles, reaplica a última regra escolhida. Na página da playlist, a faixa fica ao lado do seletor **Manual**; durante a reprodução, fica no cabeçalho da playlist lateral, junto ao nome do dono da playlist e à contagem de vídeos. Você também pode clicar no ícone roxo da TubeOrder na barra do navegador e escolher **Mais curtos primeiro** ou **Mais longos primeiro**. A escolha fica salva para as próximas entradas.
 3. Deixe a aba aberta enquanto a extensão carrega os vídeos e salva a sequência. O bloqueio de interação mostra **Aguarde enquanto o TubeOrder organiza seus vídeos**, o progresso e a estimativa de tempo restante. Na tela de reprodução, o vídeo permanece visível e o cartão de progresso fica ao lado quando há espaço. Para interromper, clique em **Parar organização** ou pressione **Esc**.
 4. Quando terminar, use **Reproduzir tudo** no YouTube. Mantenha a reprodução aleatória desativada para seguir a ordem.
 
 O processo inclui o carregamento das próximas páginas. Não há um teto artificial de vídeos imposto pela extensão. Listas maiores podem levar mais tempo para carregar e salvar; o tempo exibido é uma estimativa, atualizada conforme as respostas do YouTube. Vídeos sem duração identificável ficam no final. Se a lista já estiver em ordem, nenhuma alteração precisa ser enviada.
 
-Na tela de reprodução, a organização automática ocorre uma vez por entrada no contexto do Assistir mais tarde. A passagem para o próximo vídeo da mesma playlist não dispara outra organização. Os botões continuam disponíveis para iniciar uma nova ordenação quando você quiser.
+Na tela de reprodução, a organização automática ocorre ao entrar no Assistir mais tarde e quando um vídeo novo aparece na fila enquanto você assiste. Adições próximas são agrupadas e a última regra escolhida é reaplicada sem recarregar o player. A passagem para o próximo vídeo da mesma playlist, sozinha, não dispara outra organização. Os botões continuam disponíveis para iniciar uma nova ordenação quando você quiser.
+
+Se o YouTube atualizar a lista antes do cache interno de edição, o TubeOrder sincroniza a composição dessa fila antes de usar o manipulador nativo de mover. Isso só ocorre com a lista visível e o modelo nativo concordando, os itens compartilhados na mesma ordem e nenhuma gravação pendente. A conclusão ainda exige a confirmação da ordem devolvida pelo YouTube.
 
 A faixa compacta permanece em uma linha e indica **✓ Vídeos organizados**, em verde, ou **× Vídeos desorganizados**, em vermelho. **Itens carregados em ordem** significa que apenas a parte carregada foi verificada; **Lista vazia** indica que não há vídeos exibidos. A organização automática carrega o restante da playlist antes de confirmar a sequência completa.
 
 ## Remover vídeos assistidos
+
+Cada item tem um botão **Remover**, junto a **Bloquear** quando o CanalNonGrato estiver presente. Esse botão executa uma remoção manual imediata, independentemente do percentual assistido ou da opção de remoção automática. Usa o endpoint nativo daquele item no Assistir mais tarde e só anuncia sucesso depois da confirmação do servidor e da atualização da lista. Não simula a remoção ocultando o cartão. Na página da playlist e no painel lateral, ele também pode remover o item atualmente aberto sem que o TubeOrder envie comandos de pausa, avanço ou busca ao player.
 
 A opção **Remover vídeos assistidos**, no popup da extensão, fica ativada por padrão. Depois de assistir a pelo menos **80% do vídeo**, você pode avançar manualmente ou deixar o YouTube passar para o seguinte. A extensão espera o novo vídeo começar a tocar e mostra um aviso de **6 segundos** antes de remover o anterior do Assistir mais tarde.
 
@@ -69,6 +73,6 @@ A extensão depende dos componentes da interface do YouTube; mudanças no site p
 
 ## Consumo quando termina
 
-Após concluir ou interromper a organização, a extensão desconecta os observadores da lista e libera os dados temporários da operação. Não mantém intervalos ativos nem verificações periódicas da página. A ordenação volta a trabalhar quando você entra novamente no Assistir mais tarde ou usa um dos seus controles. O popup consulta o estado da tarefa somente enquanto estiver aberto e houver uma organização em andamento.
+Após concluir ou interromper a organização, a extensão libera os dados temporários da operação. Na tela de reprodução, mantém um observador somente dos filhos diretos da fila para detectar vídeos novos e disponibilizar os botões Remover; ele ignora alterações em miniaturas, texto e outros elementos. Na página da playlist, o observador é desconectado ao terminar. Não há intervalos ativos nem verificações periódicas da página. Os temporizadores de novas adições existem apenas durante o agrupamento daquela mudança. O popup consulta o estado da tarefa somente enquanto estiver aberto e houver uma organização em andamento.
 
 Com a remoção de assistidos ligada, a extensão acompanha os eventos nativos do vídeo ativo, sem varrer a página. A medição de progresso para ao confirmar 80% assistido; temporizadores ficam restritos à transição, ao aviso de remoção e à confirmação. Desligar a opção remove os ouvintes de acompanhamento e os avisos pendentes.

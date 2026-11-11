@@ -40,6 +40,14 @@ Executar `npm test` para testes unitários e de navegador. Os testes usam o Chro
 - O preview do aviso usa o mesmo botão Não apagar, mas seu caminho de expiração nunca envia pedidos de remoção, inclusive com reprodução pausada.
 - CSP com `require-trusted-types-for 'script'`: o preview permanece visível e o botão Não apagar funciona com a remoção desligada, sem exceções nem pedidos de remoção.
 
+## Versão 1.5.0 — 11 de novembro de 2026
+
+Passaram **4 testes unitários e 54 testes de navegador**. Manifesto, 17 referências, ícones e sintaxe JavaScript também passaram.
+
+Os casos novos conferem o botão Reorganizar com a última regra, o cache de edição desatualizado após adicionar ou remover itens, a organização automática durante a reprodução, adições em sequência com Longos primeiro, a remoção manual junto a Bloquear e sua persistência após recarregar. Também cobrem remoção na página da playlist e do vídeo atual, opção automática desligada, falha do servidor e ausência de comandos de pausa, avanço ou busca enviados ao player.
+
+A instalação local no Edge foi recarregada e mostrou a versão 1.5.0. Os controles foram conferidos no YouTube real; o usuário confirmou o funcionamento. Os testes automatizados de exclusão usam playlists simuladas, sem cliques de teste em Remover na conta real.
+
 ## Versão 1.4.5 — 10 de novembro de 2026
 
 A suíte completa passou com **4 testes unitários e 48 testes de navegador**. A execução de navegador levou 59,5 segundos. Manifesto, referências, ícones e sintaxe JavaScript também passaram na verificação.

@@ -100,8 +100,19 @@
     if (proxy.currentUpdateRequest || proxy.currentRefreshRequest || proxy.currentCreateRequest || proxy.pendingUpdates.length) return null;
     const managerIds = contents.filter((item) => item.playlistPanelVideoRenderer).map((item) => item.playlistPanelVideoRenderer.videoId);
     if (!sameOrder(managerIds, currentIds)) return null;
-    if (Array.isArray(proxy.videoIds) && !sameOrder(proxy.videoIds, currentIds)) return null;
-    return { panel, controller, manager, proxy, parent };
+    let syncIds = null;
+    if (Array.isArray(proxy.videoIds) && !sameOrder(proxy.videoIds, currentIds)) {
+      // Add/remove commands can update the panel before the edit proxy. Only
+      // reconcile membership changes: all shared IDs must retain their order
+      // in the complete, matching panel/model snapshots.
+      const cached = proxy.videoIds;
+      const cachedSet = new Set(cached), currentSet = new Set(currentIds);
+      const shared = cached.filter(id => currentSet.has(id));
+      if (!cached.length || !cached.every(id => typeof id === "string" && id) || cachedSet.size !== cached.length || !shared.length ||
+          !sameOrder(shared, currentIds.filter(id => cachedSet.has(id)))) return null;
+      syncIds = { before: [...cached], after: [...currentIds] };
+    }
+    return { panel, controller, manager, proxy, parent, syncIds };
   }
 
   // Preflight every ID and simulate every move before touching the account.
@@ -191,9 +202,21 @@
   }
 
   async function runWatch(job, prepared, started) {
-    const { controller, manager, proxy, parent } = prepared.watchContext;
+    const { controller, manager, proxy, parent, syncIds } = prepared.watchContext;
     const total = prepared.moves.length;
     const deadline = performance.now() + 25000;
+    if (syncIds) {
+      if (proxy.currentUpdateRequest || proxy.currentRefreshRequest || proxy.pendingUpdates.length ||
+          !sameOrder(proxy.videoIds, syncIds.before) || !sameOrder(visibleRows().map(videoId), syncIds.after)) {
+        throw new Error("A fila mudou enquanto o YouTube atualizava os vídeos novos. Tente reorganizar novamente.");
+      }
+      // Refresh the local edit cache only. The real reorder is still sent by
+      // handleDrop and must pass the server refresh/queue checks below.
+      proxy.videoIds = [...syncIds.after];
+      const currentVideo = new URL(location.href).searchParams.get("v");
+      const currentIndex = syncIds.after.indexOf(currentVideo);
+      if (currentIndex >= 0 && Number.isInteger(proxy.currentIndex)) proxy.currentIndex = currentIndex;
+    }
     // The native handler updates account order, sidebar and autoplay together.
     // Keep this loop synchronous: the first edit goes immediately and YouTube
     // automatically batches the remaining pending edits into its next request.

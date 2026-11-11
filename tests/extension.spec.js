@@ -146,7 +146,7 @@ test('barra compacta fica em uma linha, organiza pelos dois botões e lembra a e
   await expect(notice.getByRole('status')).toHaveText(/Vídeos organizados/);
   expect((await notice.locator('.notice').boundingBox()).height).toBeLessThanOrEqual(34);
   const buttons=notice.getByRole('button');
-  await expect(buttons).toHaveCount(2);
+  await expect(buttons).toHaveCount(3);
   const tops=await buttons.evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().top));
   expect(Math.max(...tops)-Math.min(...tops)).toBeLessThanOrEqual(1);
   await notice.getByRole('button',{name:'Mais longos primeiro',exact:true}).click();
@@ -162,6 +162,114 @@ test('barra compacta fica em uma linha, organiza pelos dois botões e lembra a e
   await phase(page,'done');
   await expect(notice.getByRole('status')).toHaveText(/Vídeos organizados/);
   expect(await ids(page)).toEqual(['short000001','medium00001','tie00000001','long0000001','private0001']);
+  await page.close();
+});
+
+test('Reorganizar reaplica a última regra com a fila de edição desatualizada por uma adição',async()=>{
+  await worker.evaluate(()=>chrome.storage.local.set({lastOrder:'desc',removeWatched:false}));
+  const page=await context.newPage();
+  await page.goto('https://www.youtube.com/watch?v=short000001&list=WL&watchpanel=1&batch=1');
+  await phase(page,'done');
+  const previous=await page.evaluate(()=>fixtureDropCalls.length);
+  await page.evaluate(()=>fixtureAddVideo());
+  expect(await page.evaluate(()=>fixtureManager.playlistProxy.videoIds.length)).toBe(5);
+  await page.locator('#tubeorder-notice').getByRole('button',{name:'Reorganizar',exact:true}).click();
+  await phase(page,'done');
+  expect(await ids(page)).toEqual(['long0000001','medium00001','tie00000001','short000001','added000001','private0001']);
+  expect(await page.evaluate(()=>fixtureDropCalls.length)).toBeGreaterThan(previous);
+  expect(await page.evaluate(()=>fixtureMoves.length)).toBe(0);
+  expect(await page.evaluate(()=>fixtureManager.playlistProxy.videoIds)).toEqual(await ids(page));
+  await expect.poll(()=>worker.evaluate(async()=>(await chrome.storage.local.get('lastOrder')).lastOrder)).toBe('desc');
+  await page.reload();await phase(page,'done');
+  expect(await ids(page)).toEqual(['long0000001','medium00001','tie00000001','short000001','added000001','private0001']);
+  await page.close();
+});
+
+test('adicionar durante a reprodução organiza sozinho uma vez sem alterar o vídeo',async()=>{
+  const page=await context.newPage();
+  let loads=0;page.on('domcontentloaded',()=>loads++);
+  await page.goto('https://www.youtube.com/watch?v=short000001&list=WL&watchpanel=1&batch=1');
+  await phase(page,'done');
+  await page.evaluate(()=>fixtureAddVideo('added000001','2:00'));
+  const target=['short000001','added000001','medium00001','tie00000001','long0000001','private0001'];
+  await expect.poll(()=>ids(page)).toEqual(target);
+  await phase(page,'done');
+  const saved=await page.evaluate(()=>fixtureDropCalls.length);
+  await page.waitForTimeout(1000);
+  expect(await page.evaluate(()=>fixtureDropCalls.length)).toBe(saved);
+  expect(await page.evaluate(()=>fixtureVideoState)).toEqual({pauseCalls:0,playCalls:0});
+  expect(await page.locator('video').evaluate(v=>({time:v.currentTime,rate:v.playbackRate,paused:v.paused}))).toEqual({time:42,rate:1.25,paused:false});
+  expect(loads).toBe(1);
+  await page.close();
+});
+
+test('adições em sequência respeitam Longos primeiro sem precisar clicar nos controles',async()=>{
+  await worker.evaluate(()=>chrome.storage.local.set({lastOrder:'desc'}));
+  const page=await context.newPage();
+  await page.goto('https://www.youtube.com/watch?v=short000001&list=WL&watchpanel=1&batch=1');
+  await phase(page,'done');
+  await page.evaluate(()=>{fixtureAddVideo('added000001','2:00');fixtureAddVideo('added000002','12:00');});
+  await expect.poll(()=>ids(page)).toEqual(['long0000001','added000002','medium00001','tie00000001','added000001','short000001','private0001']);
+  await phase(page,'done');
+  const calls=await page.evaluate(()=>fixtureDropCalls.length);
+  await page.waitForTimeout(1000);
+  expect(await page.evaluate(()=>fixtureDropCalls.length)).toBe(calls);
+  await expect(page.locator('#tubeorder-notice').getByRole('button',{name:'Mais longos primeiro',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.close();
+});
+
+test('Remover ao lado de Bloquear confirma servidor e persiste ao recarregar, com remoção automática desligada',async()=>{
+  await worker.evaluate(()=>chrome.storage.local.set({removeWatched:false}));
+  const page=await context.newPage();
+  await page.goto('https://www.youtube.com/watch?v=short000001&list=WL&watchpanel=1&batch=1');
+  await phase(page,'done');
+  const row=page.locator('[data-id="long0000001"]');
+  const remove=row.getByRole('button',{name:'Remover do Assistir mais tarde',exact:true});
+  expect(await remove.evaluate(button=>button.previousElementSibling.textContent)).toBe('Bloquear');
+  await remove.click();
+  await expect(page.locator('#tubeorder-action-result')).toContainText('Vídeo removido');
+  expect(await page.evaluate(()=>fixtureRemoveCalls)).toEqual([[{action:'ACTION_REMOVE_VIDEO',setVideoId:'set-long0000001'}]]);
+  await expect(row).toHaveCount(0);
+  expect(await page.evaluate(()=>fixtureVideoState)).toEqual({pauseCalls:0,playCalls:0});
+  expect(await page.evaluate(()=>fixtureManager.playlistProxy.videoIds.length)).toBe(5);
+  await page.locator('#tubeorder-notice').getByRole('button',{name:'Mais longos primeiro',exact:true}).click();
+  await phase(page,'done');
+  expect(await ids(page)).toEqual(['medium00001','tie00000001','short000001','private0001']);
+  expect(await page.evaluate(()=>fixtureManager.playlistProxy.videoIds)).toEqual(await ids(page));
+  await page.reload();await phase(page,'done');
+  await expect(page.locator('[data-id="long0000001"]')).toHaveCount(0);
+  await page.close();
+});
+
+test('Remover funciona na página da playlist e também no vídeo atual sem comandar a reprodução',async()=>{
+  for(const watch of [false,true]) {
+    const page=await context.newPage();
+    await page.goto(watch?'https://www.youtube.com/watch?v=short000001&list=WL&watchpanel=1&batch=1':'https://www.youtube.com/playlist?list=WL&batch=1');
+    await phase(page,'done');
+    const row=page.locator('[data-id="short000001"]');
+    await row.getByRole('button',{name:'Remover do Assistir mais tarde',exact:true}).click();
+    await expect(page.locator('#tubeorder-action-result')).toContainText('Vídeo removido');
+    await expect(row).toHaveCount(0);
+    if(watch) {
+      expect(await page.locator('video').evaluate(v=>({time:v.currentTime,rate:v.playbackRate,paused:v.paused}))).toEqual({time:42,rate:1.25,paused:false});
+      expect(await page.evaluate(()=>fixtureVideoState)).toEqual({pauseCalls:0,playCalls:0});
+    }
+    await page.close();
+    const clean=await context.newPage();await clean.goto('https://www.youtube.com/playlist?list=LL');await clean.evaluate(()=>localStorage.clear());await clean.close();
+  }
+});
+
+test('Remover mantém o item e mostra a falha quando o servidor recusa',async()=>{
+  const page=await context.newPage();
+  await page.goto('https://www.youtube.com/watch?v=short000001&list=WL&watchpanel=1&batch=1&removalerror=1');
+  await phase(page,'done');
+  const row=page.locator('[data-id="long0000001"]');
+  await row.getByRole('button',{name:'Remover do Assistir mais tarde',exact:true}).click();
+  await expect(page.locator('#tubeorder-action-result')).toContainText('não confirmou a remoção');
+  await expect(row).toHaveCount(1);
+  expect(await page.evaluate(()=>fixtureRemoveCalls.length)).toBe(1);
+  await page.waitForTimeout(400);
+  expect(await page.evaluate(()=>fixtureRemoveCalls.length)).toBe(1);
   await page.close();
 });
 

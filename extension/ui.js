@@ -284,30 +284,34 @@
       button[aria-pressed="true"] { background:#ddcaff; border-color:#f1e8ff; color:#251a3b; }
       button:disabled { opacity:.5; cursor:default; }
       button:focus-visible { outline:2px solid #e4d5ff; outline-offset:3px; }
-    </style><aside class="notice" aria-label="Organizar por duração"><span class="mini-mark" title="TubeOrder">${icon}</span><button type="button" data-order="asc" aria-label="Mais curtos primeiro" aria-pressed="false" title="Mais curtos primeiro">Curtos primeiro</button><button type="button" data-order="desc" aria-label="Mais longos primeiro" aria-pressed="false" title="Mais longos primeiro">Longos primeiro</button><p role="status"><span class="status-mark" aria-hidden="true" hidden></span><span class="status-text">Itens carregados em ordem</span></p></aside>`;
+    </style><aside class="notice" aria-label="Organizar por duração"><span class="mini-mark" title="TubeOrder">${icon}</span><button type="button" data-reorganize title="Reaplicar a última ordem escolhida">Reorganizar</button><button type="button" data-order="asc" aria-label="Mais curtos primeiro" aria-pressed="false" title="Mais curtos primeiro">Curtos primeiro</button><button type="button" data-order="desc" aria-label="Mais longos primeiro" aria-pressed="false" title="Mais longos primeiro">Longos primeiro</button><p role="status"><span class="status-mark" aria-hidden="true" hidden></span><span class="status-text">Itens carregados em ordem</span></p></aside>`;
     const buttons = [...shadow.querySelectorAll("button")];
     const message = shadow.querySelector(".status-text");
     const statusLine = shadow.querySelector("p");
     const mark = shadow.querySelector(".status-mark");
     let destroyed = false;
+    let currentOrder = "asc";
     for (const button of buttons) {
       button.addEventListener("click", event => {
         event.stopPropagation();
-        handlers.onSort?.(button.dataset.order);
+        handlers.onSort?.(button.dataset.order || currentOrder);
       });
     }
     return {
       update(status = {}) {
         if (destroyed) return;
         const disorder = Boolean(status.disorder);
+        currentOrder = status.order || currentOrder;
         for (const button of buttons) {
           button.disabled = Boolean(status.busy) || status.count === 0;
-          button.setAttribute("aria-pressed", String(!disorder && status.order === button.dataset.order));
+          if (button.dataset.order) button.setAttribute("aria-pressed", String(!disorder && status.order === button.dataset.order));
+          else button.title = `Reorganizar: ${currentOrder === "desc" ? "longos" : "curtos"} primeiro`;
         }
         const empty = status.count === 0;
-        const organized = !empty && !disorder && Boolean(status.complete);
-        message.textContent = empty ? "Lista vazia" : disorder ? "Vídeos desorganizados" : organized ? "Vídeos organizados" : "Itens carregados em ordem";
-        statusLine.classList.toggle("disorder", !empty && disorder);
+        const organized = !empty && !disorder && Boolean(status.complete) && status.phase !== "error";
+        message.textContent = status.phase === "error" ? "Falha ao organizar" : empty ? "Lista vazia" : disorder ? "Vídeos desorganizados" : organized ? "Vídeos organizados" : "Itens carregados em ordem";
+        statusLine.title = status.phase === "error" ? status.detail || status.message : "";
+        statusLine.classList.toggle("disorder", !empty && (disorder || status.phase === "error"));
         statusLine.classList.toggle("organized", organized);
         mark.textContent = organized ? "✓" : !empty && disorder ? "×" : "";
         mark.hidden = !organized && (empty || !disorder);

@@ -22,6 +22,9 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
   const videos = large
     ? Array.from({length: 157}, (_, i) => ({id:`video${String(i).padStart(6,'0')}`,duration:((157-i)%60)+':'+String((i*7)%60).padStart(2,'0')}))
     : [{id:'long0000001',duration:'1:02:03'}, {id:'short000001',duration:'0:45'}, {id:'medium00001',duration:'9:40'}, {id:'private0001',duration:''}, {id:'tie00000001',duration:'9:40'}];
+  videos.push(...JSON.parse(localStorage.getItem('fixture-extra-videos')||'[]'));
+  const removedIds=JSON.parse(localStorage.getItem('fixture-removed')||'[]');
+  for(let i=videos.length-1;i>=0;i--) if(removedIds.includes(videos[i].id)) videos.splice(i,1);
   if (parameters.has('sorted')) videos.sort((a,b)=>{
     const seconds=s=>s ? s.split(':').reduce((n,v)=>n*60+Number(v),0) : Infinity;
     return seconds(a.duration)-seconds(b.duration);
@@ -31,6 +34,7 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
   window.fixtureMoves = [];
   window.fixtureBatchCalls = [];
   window.fixtureDropCalls = [];
+  window.fixtureRemoveCalls = [];
   window.fixtureVideoState = {pauseCalls:0,playCalls:0};
   if (noLogin) document.querySelector('#avatar-btn').remove();
   if (watchPanel) {
@@ -58,6 +62,8 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
     video.pause=()=>{paused=true;window.fixtureVideoState.pauseCalls+=1;};
     video.play=()=>{paused=false;window.fixtureVideoState.playCalls+=1;return Promise.resolve();};
     player.append(video);panel.before(player);
+    player.getVideoData=()=>({video_id:new URL(location.href).searchParams.get('v'),isLive:false});
+    player.getPlayerState=()=>video.paused?2:1;
   }
   const list = document.querySelector('#contents');
   const saved = JSON.parse(localStorage.getItem('fixture-order') || 'null');
@@ -71,9 +77,10 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
     return Array.from(list.querySelectorAll(rowTag),row=>({playlistPanelVideoRenderer:row.data}));
   }
   if(watchPanel&&batch) {
-    const proxy={listId:'WL',videoIds:[],pendingUpdates:[],currentUpdateRequest:undefined,currentRefreshRequest:undefined};
+    const proxy={listId:'WL',videoIds:[],currentIndex:0,pendingUpdates:[],currentUpdateRequest:undefined,currentRefreshRequest:undefined};
     manager={listId:'WL',responsePlaylistData:{playlistId:'WL',contents:[]},playlistProxy:proxy};
     window.default_kevlar_base={dg:()=>manager};
+    window.fixtureManager=manager;
     function processUpdates() {
       if(proxy.currentUpdateRequest||!proxy.pendingUpdates.length) return;
       const update=proxy.pendingUpdates[0];
@@ -104,6 +111,7 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
       handleDrop({currDragItem}) {
         if(!currDragItem||!list.contains(currDragItem)) throw new Error('Fixture expects a connected current drag item');
         const model=Array.from(list.querySelectorAll(rowTag),row=>row.dataset.id);
+        if(proxy.videoIds.length!==model.length || model.some(id=>!proxy.videoIds.includes(id))) throw new Error('Native edit proxy is missing a newly added video');
         window.fixtureDropCalls.push({id:currDragItem.dataset.id,ids:[...model]});
         manager.responsePlaylistData.contents=panelContents();
         if(parameters.has('nestedscroll')) list.scrollTo({top:list.scrollHeight,behavior:'instant'});
@@ -116,15 +124,18 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
   function makeRow(video) {
     const row = document.createElement(rowTag);
     row.dataset.id = video.id;
-    row.innerHTML = `<a id="video-title" href="/watch?v=${video.id}&list=WL&index=${order.indexOf(video.id)+1}">Vídeo ${video.id}</a><ytd-thumbnail-overlay-time-status-renderer><span id="text">${video.duration}</span></ytd-thumbnail-overlay-time-status-renderer><div id="menu"><button aria-label="Menu de ações">⋮</button></div>`;
+    row.innerHTML = `<a id="video-title" href="/watch?v=${video.id}&list=WL&index=${order.indexOf(video.id)+1}">Vídeo ${video.id}</a><ytd-thumbnail-overlay-time-status-renderer><span id="text">${video.duration}</span></ytd-thumbnail-overlay-time-status-renderer><span id="byline-container">Canal de exemplo <button class="fixture-block">Bloquear</button></span><div id="menu"><button aria-label="Menu de ações">⋮</button></div>`;
     if (batch) row.data = {
       videoId:video.id, ...(watchPanel ? {playlistSetVideoId:`set-${video.id}`} : {setVideoId:`set-${video.id}`}),
       menu:{menuRenderer:{items:[{menuServiceItemRenderer:{serviceEndpoint:{
         commandMetadata:{webCommandMetadata:{sendPost:true,apiUrl:'/youtubei/v1/browse/edit_playlist'}},
         playlistEditEndpoint:{playlistId:'WL',actions:[{action:'ACTION_MOVE_VIDEO_AFTER',setVideoId:`set-${video.id}`}]}
+      }}},{menuServiceItemRenderer:{serviceEndpoint:{
+        commandMetadata:{webCommandMetadata:{sendPost:true,apiUrl:'/youtubei/v1/browse/edit_playlist'}},
+        playlistEditEndpoint:{playlistId:'WL',actions:[{action:'ACTION_REMOVE_VIDEO',setVideoId:`set-${video.id}`}],clientActions:[{playlistRemoveVideosAction:{setVideoIds:[`set-${video.id}`]}}]}
       }}}]}}
     };
-    row.querySelector('button').addEventListener('click', () => openMenu(video.id));
+    row.querySelector('[aria-label="Menu de ações"]').addEventListener('click', () => openMenu(video.id));
     return row;
   }
   function save() {
@@ -135,6 +146,23 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
     const endpoint=event.detail.args?.[1];
     const edit=endpoint?.playlistEditEndpoint;
     if (!edit || edit.playlistId!=='WL') return;
+    if(edit.actions?.length===1&&edit.actions[0].action==='ACTION_REMOVE_VIDEO') {
+      window.fixtureRemoveCalls.push(structuredClone(edit.actions));
+      event.detail.returnValue.push({ajaxPromise:new Promise(resolve=>setTimeout(()=>{
+        if(parameters.has('removalerror')) {resolve({data:{status:'STATUS_FAILED'}});return;}
+        const row=Array.from(list.children).find(row=>(row.data?.playlistSetVideoId||row.data?.setVideoId)===edit.actions[0].setVideoId);
+        if(!row) throw new Error('Unknown removal item');
+        const id=row.data.videoId;row.remove();
+        const removed=JSON.parse(localStorage.getItem('fixture-removed')||'[]');removed.push(id);localStorage.setItem('fixture-removed',JSON.stringify(removed));
+        const index=videos.findIndex(video=>video.id===id);if(index>=0)videos.splice(index,1);
+        if(manager)manager.responsePlaylistData.contents=panelContents();
+        save();
+        document.querySelector('#total').textContent=`${videos.length} vídeos`;
+        const publisher=document.getElementById('publisher-container');if(publisher)publisher.firstElementChild.textContent=`1 / ${videos.length}`;
+        resolve({data:{status:'STATUS_SUCCEEDED'}});
+      },35))});
+      return;
+    }
     window.fixtureBatchCalls.push(structuredClone(edit.actions));
     localStorage.setItem('fixture-batch-total', String(Number(localStorage.getItem('fixture-batch-total')||0)+1));
     event.detail.returnValue ||= [];
@@ -185,6 +213,15 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
     }
     document.body.append(popup);
   }
+  window.fixtureAddVideo=(id='added000001',duration='0:20')=>{
+    const video={id,duration};videos.push(video);order.unshift(id);loaded+=1;
+    const extras=JSON.parse(localStorage.getItem('fixture-extra-videos')||'[]');extras.push(video);localStorage.setItem('fixture-extra-videos',JSON.stringify(extras));
+    list.prepend(makeRow(video));
+    document.getElementById('total').textContent=`${videos.length} vídeos`;
+    const publisher=document.getElementById('publisher-container');if(publisher)publisher.firstElementChild.textContent=`1 / ${videos.length}`;
+    if(manager)manager.responsePlaylistData.contents=panelContents();
+    save();
+  };
   function nextPage() {
     if (pending) return;
     pending = true;

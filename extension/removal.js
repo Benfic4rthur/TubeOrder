@@ -11,7 +11,7 @@
   window.addEventListener("tubeorder:cleanup-settings", event => { enabled = event.detail?.enabled === true; });
 
   function emit(request, type, extra = {}) {
-    window.dispatchEvent(new CustomEvent(RESULT_EVENT, {
+    window.dispatchEvent(new CustomEvent(request.manual ? "tubeorder:manual-remove-result" : RESULT_EVENT, {
       detail: { requestId: request.requestId, videoId: request.videoId, type, ...extra },
     }));
   }
@@ -28,6 +28,12 @@
   }
 
   function rows() {
+    if (location.pathname.replace(/\/$/, "") === "/playlist") {
+      for (const list of document.querySelectorAll("ytd-playlist-video-list-renderer")) {
+        if (!list.closest("[hidden]")) return Array.from(list.querySelectorAll("ytd-playlist-video-renderer"));
+      }
+      return [];
+    }
     for (const panel of document.querySelectorAll("ytd-playlist-panel-renderer")) {
       if (!panel.closest("[hidden]")) return Array.from(panel.querySelectorAll("ytd-playlist-panel-video-renderer"));
     }
@@ -138,6 +144,32 @@
     };
   }
 
+  function manualContext(request) {
+    const url = new URL(location.href);
+    const avatar = document.querySelector("ytd-masthead #avatar-btn, #masthead #avatar-btn, ytd-masthead button#avatar");
+    return request.contextUrl === location.href && url.origin === "https://www.youtube.com" &&
+      ["/watch", "/playlist"].includes(url.pathname.replace(/\/$/, "")) && url.searchParams.get("list") === "WL" &&
+      Boolean(avatar && !avatar.closest("[hidden]")) && !document.getElementById("tubeorder-lock");
+  }
+
+  function prepareManual(request) {
+    if (!manualContext(request)) throw new Error("A página mudou. Nenhum pedido de remoção foi enviado.");
+    const visible = rows();
+    const oldRow = visible.find(row => data(row)?.videoId === request.videoId);
+    const setVideoId = oldRow && (data(oldRow)?.playlistSetVideoId || data(oldRow)?.setVideoId);
+    const endpoint = oldRow && removalEndpoint(oldRow, setVideoId);
+    if (!setVideoId || !endpoint) throw new Error("O YouTube não disponibilizou um comando de remoção válido para este item. Ele foi mantido.");
+    const domIds = visible.map(row => data(row)?.videoId);
+    if (!domIds.every(id => typeof id === "string" && id) || new Set(domIds).size !== domIds.length) throw new Error("Não consegui confirmar os itens da lista. Nenhum pedido foi enviado.");
+    const panel = oldRow.closest("ytd-playlist-panel-renderer");
+    const currentVideo = new URL(location.href).searchParams.get("v");
+    // Removing the playing item is an explicit user action. YouTube may retain
+    // that media as a temporary playback item; verify the saved/visible list.
+    const queues = panel && currentVideo !== request.videoId
+      ? confirmationQueues(panel, { ...request, nextVideoId: currentVideo }) : [];
+    return { oldRow, endpoint, setVideoId, queues, expectedDom: domIds.filter(id => id !== request.videoId) };
+  }
+
   async function sendNative(prepared) {
     const anchor = prepared.oldRow;
     const detail = {
@@ -179,7 +211,7 @@
   async function run(request, prepared) {
     try {
       // A final current-player check closes the gap between preflight and send.
-      if (!enabled || !playingNext(request.nextVideoId)) {
+      if (request.manual ? !manualContext(request) : !enabled || !playingNext(request.nextVideoId)) {
         emit(request, "unsupported");
         return;
       }
@@ -208,6 +240,19 @@
     let prepared;
     try { prepared = prepare(request); }
     catch (error) { emit(request, "unsupported", { message: error?.message || "Não consegui confirmar a remoção do vídeo anterior." }); return; }
+    active = request;
+    void run(request, prepared);
+  });
+
+  window.addEventListener("tubeorder:manual-remove-request", event => {
+    const detail = event.detail;
+    if (!detail || typeof detail.requestId !== "string" || !detail.requestId || detail.requestId.length > 200 ||
+        typeof detail.videoId !== "string" || !detail.videoId || typeof detail.contextUrl !== "string") return;
+    const request = { requestId: detail.requestId, videoId: detail.videoId, contextUrl: detail.contextUrl, manual: true };
+    if (active) { emit(request, "busy", { message: "Já existe uma remoção em andamento. Aguarde a confirmação." }); return; }
+    let prepared;
+    try { prepared = prepareManual(request); }
+    catch (error) { emit(request, "unsupported", { message: error?.message || "Não consegui confirmar o item da lista." }); return; }
     active = request;
     void run(request, prepared);
   });

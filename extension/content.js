@@ -25,6 +25,9 @@
   let startupTimeout = null;
   let listObserver = null;
   let watchedList = null;
+  let knownEntries = null;
+  let additionTimer = null;
+  let additionsPending = false;
   let originals = new Map();
   let anonymous = new WeakMap();
   let nextIndex = 0;
@@ -151,6 +154,7 @@
   function checkOrder() {
     if (job || !list?.isConnected) return;
     const videos = snapshot();
+    globalThis.TubeOrderRowActions?.sync(videos.map(video => ({ row: video.node, id: video.id })));
     const target = sortVideos(videos, preferredOrder);
     const disorder = videos.some((video, index) => video.id !== target[index].id);
     if (!noticeHost?.isConnected) {
@@ -187,6 +191,7 @@
     if (!navigating && contextKey() !== lastContextKey) {
       lastContextKey = contextKey();
       entryAutoStarted = false;
+      knownEntries = null;
     }
     if (navigating || !isWatchLater() || !isLoggedIn()) {
       if (job && !job.cancelled) cancel();
@@ -197,6 +202,9 @@
       hideNotice();
       list = null;
       watchList(null);
+      globalThis.TubeOrderRowActions?.destroy();
+      clearTimeout(additionTimer); additionTimer = null;
+      if (!isWatchLater()) { knownEntries = null; additionsPending = false; }
       originals.clear();
       anonymous = new WeakMap();
       status = inactiveStatus();
@@ -220,6 +228,7 @@
         message: "Sua próxima sessão, em ordem.", detail: "Escolha uma opção. Eu carrego a lista toda e salvo a ordem no YouTube." };
     }
     if (!job) snapshot();
+    if (!job) rememberEntries(true);
     update({ available: true, count: rows().length, total: expectedTotal() });
     if (isPlayer()) {
       window.dispatchEvent(new CustomEvent("tubeorder:cleanup-context-ready"));
@@ -231,7 +240,26 @@
       queueMicrotask(() => {
         if (!job && isWatchLater() && isLoggedIn()) startSort(preferredOrder);
       });
-    } else if (!job && entryAutoStarted) watchList(null);
+    } else if (!job && entryAutoStarted && !isPlayer()) watchList(null);
+  }
+
+  function queueAdditionSort() {
+    clearTimeout(additionTimer);
+    additionTimer = setTimeout(() => {
+      additionTimer = null;
+      if (navigating || !isWatchLater() || !isPlayer() || !isLoggedIn()) return;
+      if (job) { additionsPending = true; return; }
+      startSort(preferredOrder);
+    }, 450);
+  }
+
+  function rememberEntries(trigger) {
+    const current = new Set(rows().map(idFor));
+    const added = knownEntries && [...current].some(id => !knownEntries.has(id));
+    const total = expectedTotal();
+    if (!knownEntries || (total !== null && current.size >= total)) knownEntries = current;
+    else for (const id of current) knownEntries.add(id);
+    if (trigger && added && entryAutoStarted && preferencesReady && isPlayer()) queueAdditionSort();
   }
 
   function scheduleRefresh() {
@@ -262,9 +290,15 @@
     watchedList = target;
     if (!target) return;
     listObserver = new MutationObserver((records) => {
-      if (job) return;
-      if (records.some((record) => [...record.addedNodes, ...record.removedNodes]
-        .some((node) => node.nodeType === Node.ELEMENT_NODE && node.matches(ROW_SELECTOR)))) scheduleRefresh();
+      const changedRows = records.some(record => [...record.addedNodes, ...record.removedNodes]
+        .some(node => node.nodeType === Node.ELEMENT_NODE && node.matches(ROW_SELECTOR)));
+      if (!changedRows) return;
+      if (job) {
+        if (status.phase === "sorting" && knownEntries && rows().some(row => !knownEntries.has(idFor(row)))) additionsPending = true;
+        return;
+      }
+      rememberEntries(true);
+      scheduleRefresh();
     });
     // Direct additions/removals only: no thumbnails, text, player or page-wide
     // observation, no timers or periodic rescans while the page is idle.
@@ -378,10 +412,19 @@
   function startSort(order) {
     reconcile();
     if (job || !status.available || !["asc", "desc"].includes(order)) return;
+    clearTimeout(additionTimer); additionTimer = null;
+    try {
+      if (!chrome.runtime.id) throw new Error("Extension context invalidated");
+      void chrome.storage.local.set({ lastOrder: order }).catch(() => {});
+    } catch {
+      update({ phase: "error", detail: "A extensão foi atualizada. Recarregue esta aba do YouTube para reativar os botões." });
+      checkOrder();
+      globalThis.TubeOrderRowActions?.notify(status.detail, true);
+      return;
+    }
     const activeJob = { cancelled: false };
     entryAutoStarted = true;
     preferredOrder = order;
-    void chrome.storage.local.set({ lastOrder: order }).catch(() => {});
     job = activeJob;
     update({ busy: true, phase: "loading", moved: 0, moves: 0, order, etaSeconds: null, mediaRect: mediaRect(), message: "Preparando sua lista…", detail: "A ordem será salva na própria playlist." });
     void runSort(activeJob, order);
@@ -443,6 +486,7 @@
     try {
       const videos = await loadAll(activeJob);
       assertActive(activeJob);
+      rememberEntries(false);
       const target = sortVideos(videos, order);
       const currentIds = videos.map((video) => video.id);
       const targetIds = target.map((video) => video.id);
@@ -455,6 +499,7 @@
       let model = [...currentIds];
       const sortingStarted = performance.now();
       const batched = moves.length ? await tryNativeBatch(activeJob, videos, moves, targetIds) : false;
+      if (isPlayer() && moves.length && !batched) throw new Error("O YouTube ainda não disponibilizou uma fila editável. Tente Reorganizar; se continuar, recarregue a aba para atualizar a extensão.");
       for (let i = 0; !batched && i < moves.length; i += 1) {
         assertActive(activeJob);
         const move = moves[i];
@@ -481,6 +526,7 @@
         update({ busy: false, phase: error.name === "AbortError" ? "cancelled" : "error",
           message: error.name === "AbortError" ? "Organização interrompida." : "Não consegui concluir a organização.",
           detail: error.name === "AbortError" ? "Os movimentos já salvos no YouTube foram mantidos. Clique em uma ordem para continuar." : error.message });
+        if (error.name !== "AbortError") globalThis.TubeOrderRowActions?.notify(error.message, true);
       }
     } finally {
       window.removeEventListener("resize", refreshVideoRect);
@@ -488,7 +534,12 @@
       if (job === activeJob) job = null;
       if (isWatchLater() && !navigating) scrollTo({ left: oldScroll.x, top: oldScroll.y, behavior: "instant" });
       if (isWatchLater() && !navigating) checkOrder();
-      watchList(null);
+      if (isWatchLater() && !navigating) rememberEntries(false);
+      watchList(isWatchLater() && isPlayer() && !navigating ? list : null);
+      if (additionsPending) {
+        additionsPending = false;
+        if (!activeJob.cancelled) queueAdditionSort();
+      }
       originals.clear();
       anonymous = new WeakMap();
       nextIndex = 0;
