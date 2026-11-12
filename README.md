@@ -57,7 +57,7 @@ A distribuição é por ZIP; a extensão ainda não está nas lojas dos navegado
 
 Para remover quando quiser, use **Remover** em cada item do Assistir mais tarde, junto ao botão **Bloquear** quando o CanalNonGrato estiver instalado. O comando usa o próprio YouTube e só anuncia sucesso depois da confirmação do servidor e da atualização da lista. Também funciona com a remoção automática desligada.
 
-**A remoção de assistidos vem ativada** e pode ser desligada no ícone da extensão. Depois de pelo menos **80% efetivamente reproduzidos**, avance manualmente ou deixe o YouTube iniciar o próximo vídeo. O TubeOrder mostra um aviso de **6 segundos** antes de remover o anterior do Assistir mais tarde.
+**A remoção de assistidos vem ativada** e pode ser desligada no ícone da extensão. Ao terminar o vídeo ou avançar com **90% do progresso**, inclusive em um vídeo retomado, o TubeOrder espera o próximo da lista começar e mostra um aviso de **6 segundos** antes de remover o anterior. A regra de pelo menos **80% dos trechos reproduzidos na sessão** também continua valendo.
 
 Clique em **Não apagar** para cancelar **somente aquela tentativa**. Se reassistir ao vídeo e avançar novamente, ele poderá receber outro aviso. Pausar o próximo vídeo interrompe a contagem; ao retomar, o prazo começa de novo. [Veja as regras completas](docs/guia.md#remover-vídeos-assistidos).
 

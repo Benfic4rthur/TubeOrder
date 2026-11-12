@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "TubeOrder — Assistir mais tarde em ordem",
   "short_name": "TubeOrder",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Organiza de verdade o Assistir mais tarde pela duração. Um clique, e o YouTube reproduz na ordem certa.",
   "permissions": [
     "storage"

@@ -62,6 +62,87 @@ async function none(page){
   await page.close();
 }
 
+async function regressionNotice(page){
+  await page.clock.fastForward(350);
+  await expect(notice(page)).toBeVisible({timeout:800});
+}
+
+test('retomar um vídeo e avançar aos 90% não exige assistir tudo de novo na mesma aba',async()=>{
+  const page=await open('&native=1');
+  await page.evaluate(()=>{cleanupFixture.watch([[70,90]],90);cleanupFixture.navigate();});
+  await regressionNotice(page);
+  await approve(page);
+  await expect.poll(()=>page.evaluate(()=>cleanupFixture.results.find(result=>result.type==='done')?.serverConfirmed),{timeout:1000}).toBe(true);
+  await expect(page.locator('[data-id="old00000001"]')).toHaveCount(0);
+});
+
+test('chegar ao final de um vídeo retomado remove o anterior depois que o próximo começa',async()=>{
+  const page=await open('&native=1');
+  await page.evaluate(()=>{cleanupFixture.finish([[60,100]]);cleanupFixture.navigate();});
+  await regressionNotice(page);
+  await approve(page);
+  await expect.poll(()=>page.evaluate(()=>cleanupFixture.results.some(result=>result.type==='done')),{timeout:1000}).toBe(true);
+});
+
+test('a atualização da mídia antes do evento de navegação preserva o vídeo anterior',async()=>{
+  const page=await open('&native=1');
+  await page.evaluate(()=>{cleanupFixture.watch([[0,85]],85);cleanupFixture.navigate({emitNavigationStart:false});});
+  await regressionNotice(page);
+  await approve(page);
+  await expect.poll(()=>page.evaluate(()=>cleanupFixture.results.some(result=>result.type==='done')),{timeout:1000}).toBe(true);
+});
+
+test('navegação SPA para o mesmo vídeo não desliga o acompanhamento do progresso',async()=>{
+  const page=await open('&native=1');
+  await page.evaluate(()=>{cleanupFixture.watch([[0,20]],20);document.dispatchEvent(new Event('yt-navigate-start'));document.dispatchEvent(new Event('yt-navigate-finish'));cleanupFixture.watch([[0,85]],85);cleanupFixture.navigate();});
+  await regressionNotice(page);
+  await approve(page);
+  await expect.poll(()=>page.evaluate(()=>cleanupFixture.results.some(result=>result.type==='done')),{timeout:1000}).toBe(true);
+});
+
+test('o próximo já tocando é reconhecido mesmo sem um novo evento playing',async()=>{
+  const page=await open('&native=1');
+  await page.evaluate(()=>{cleanupFixture.watch([[0,85]],85);cleanupFixture.navigate({emitPlaying:false});});
+  await regressionNotice(page);
+  await approve(page);
+  await expect.poll(()=>page.evaluate(()=>cleanupFixture.results.some(result=>result.type==='done')),{timeout:1000}).toBe(true);
+});
+
+test('duração disponível depois de loadedmetadata ainda inicia o acompanhamento',async()=>{
+  const page=await open('&native=1');
+  await page.evaluate(()=>{
+    window.dispatchEvent(new CustomEvent('tubeorder:cleanup-settings',{detail:{enabled:false}}));
+    cleanupFixture.state.duration=NaN;
+    window.dispatchEvent(new CustomEvent('tubeorder:cleanup-settings',{detail:{enabled:true}}));
+    cleanupFixture.state.duration=100;cleanupFixture.event('durationchange');
+    cleanupFixture.watch([[0,85]],85);cleanupFixture.navigate();
+  });
+  await regressionNotice(page);
+  await approve(page);
+  await expect.poll(()=>page.evaluate(()=>cleanupFixture.results.some(result=>result.type==='done')),{timeout:1000}).toBe(true);
+});
+
+test('seleção visual antiga não bloqueia a remoção com URL e player confirmando o próximo',async()=>{
+  const page=await open('&native=1');
+  await page.evaluate(()=>{cleanupFixture.watch([[0,85]],85);cleanupFixture.navigate({staleSelected:true});});
+  await regressionNotice(page);
+  await approve(page);
+  await expect.poll(()=>page.evaluate(()=>cleanupFixture.results.find(result=>result.type!=='started')?.type),{timeout:1000}).toBe('done');
+});
+
+test('uma falha não impede nova tentativa depois de reassistir o vídeo em outra passagem',async()=>{
+  const page=await open('&native=1');
+  await page.evaluate(()=>{cleanupFixture.bridgeFail();cleanupFixture.watch([[0,85]],85);cleanupFixture.navigate();});
+  await regressionNotice(page);await approve(page);
+  await expect.poll(()=>page.evaluate(()=>cleanupFixture.results.some(result=>result.type==='error'))).toBe(true);
+  await page.evaluate(()=>{cleanupFixture.state.bridgeError=false;cleanupFixture.navigate({id:cleanupFixture.OLD});cleanupFixture.watch([[0,85]],85);cleanupFixture.navigate();});
+  await regressionNotice(page);
+  await page.clock.fastForward(6000);
+  await page.clock.fastForward(100);
+  await expect.poll(()=>page.evaluate(()=>cleanupFixture.nativeRequests.length),{timeout:1000}).toBe(2);
+  await expect.poll(()=>page.evaluate(()=>cleanupFixture.results.some(result=>result.type==='done')),{timeout:1000}).toBe(true);
+});
+
 test('80% reais mostram aviso por seis segundos antes de remover',async()=>{
   const page=await open();
   await page.evaluate(()=>{cleanupFixture.watch([[0,80]],80);cleanupFixture.navigate();});
@@ -107,21 +188,21 @@ test('a soma de trechos realmente assistidos pode atingir 80% mesmo com uma lacu
   await page.close();
 });
 
-test('79% assistidos não removem mesmo com o cursor quase no fim',async()=>{
+test('79% assistidos e posição abaixo de 90% não removem',async()=>{
   const page=await open();
-  await page.evaluate(()=>{cleanupFixture.watch([[0,79]],99.9);cleanupFixture.navigate();});
+  await page.evaluate(()=>{cleanupFixture.watch([[0,79]],89.9);cleanupFixture.navigate();});
   await none(page);
 });
 
-test('seek para 99% sem assistir 80% não remove',async()=>{
+test('avançar enquanto ainda busca 99% sem retomar a reprodução não remove',async()=>{
   const page=await open();
-  await page.evaluate(()=>{cleanupFixture.watch([[99,100]],100);cleanupFixture.navigate();});
+  await page.evaluate(()=>{cleanupFixture.state.seeking=true;cleanupFixture.event('seeking');cleanupFixture.watch([[99,100]],100);cleanupFixture.navigate();});
   await none(page);
 });
 
 test('trechos com lacuna e soma inferior a 80% não removem',async()=>{
   const page=await open();
-  await page.evaluate(()=>{cleanupFixture.watch([[0,40],[80,100]],100);cleanupFixture.navigate();});
+  await page.evaluate(()=>{cleanupFixture.watch([[0,40],[80,85]],85);cleanupFixture.navigate();});
   await none(page);
 });
 

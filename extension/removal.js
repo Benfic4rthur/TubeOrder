@@ -125,7 +125,9 @@
     const oldRow = visible.find((row) => data(row)?.videoId === request.videoId);
     const nextRow = visible.find((row) => data(row)?.videoId === request.nextVideoId);
     const oldData = oldRow && data(oldRow);
-    if (!oldRow || !nextRow || oldData.selected || oldRow.hasAttribute("selected")) {
+    // After an in-place reorder, selected attributes may lag behind playback.
+    // playingNext already confirms the current identity with both URL and player.
+    if (!oldRow || !nextRow) {
       throw new Error("A fila mudou antes da remoção. O vídeo anterior foi mantido.");
     }
     const setVideoId = oldData.playlistSetVideoId || oldData.setVideoId;
@@ -215,7 +217,7 @@
         emit(request, "unsupported");
         return;
       }
-      attempted.add(prepared.setVideoId);
+      attempted.add(request.requestId);
       if (attempted.size > 64) attempted.delete(attempted.values().next().value);
       emit(request, "started");
       await sendNative(prepared);
@@ -232,10 +234,7 @@
     const request = event.detail;
     if (!request || typeof request.requestId !== "string" || !request.requestId || request.requestId.length > 200 ||
         typeof request.videoId !== "string" || !request.videoId || typeof request.nextVideoId !== "string" || !request.nextVideoId) return;
-    const currentRow = rows().find((row) => data(row)?.videoId === request.videoId);
-    const currentData = currentRow && data(currentRow);
-    const attemptedSetId = request.setVideoId || currentData?.playlistSetVideoId || currentData?.setVideoId;
-    if (attemptedSetId && attempted.has(attemptedSetId)) { emit(request, "duplicate"); return; }
+    if (attempted.has(request.requestId)) { emit(request, "duplicate"); return; }
     if (active) { emit(request, "busy"); return; }
     let prepared;
     try { prepared = prepare(request); }

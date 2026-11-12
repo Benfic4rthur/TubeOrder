@@ -25,11 +25,11 @@ Executar `npm test` para testes unitários e de navegador. Os testes usam o Chro
 - Navegação SPA do YouTube que ativa os controles ao entrar no Assistir mais tarde e os remove ao sair, sem erro de página.
 - Cancelamento que interrompe novos movimentos.
 - Falha do comando nativo sem anúncio incorreto de sucesso.
-- Remoção do vídeo anterior somente após pelo menos 80% realmente assistidos e início estável do próximo vídeo, inclusive após clicar manualmente em Próximo.
+- Remoção após pelo menos 80% dos trechos reproduzidos ou progresso de 90% do vídeo que tocou, com início estável do próximo, inclusive para vídeos retomados e avanço manual.
 - O aviso aparece antes de qualquer pedido de remoção e aguarda seis segundos; em 5999 milissegundos ainda não há pedido.
 - O botão Não apagar, uma nova troca de vídeo ou desligar a preferência cancelam a remoção pendente.
 - Não apagar cancela somente a tentativa atual: reassistir o mesmo vídeo com um recurso de mídia novo permite outro aviso.
-- Seek para o fim sem cobertura de 80%, soma de trechos inferior a 80%, pausa sem próximo vídeo, próximo ainda sem `playing`, outra playlist ou ID divergente não solicitam remoção.
+- Busca de posição ainda em andamento, soma de trechos inferior a 80% com progresso abaixo de 90%, pausa sem próximo vídeo, próximo que ainda não tocou, outra playlist ou ID divergente não solicitam remoção.
 - Pausar o próximo vídeo esconde o aviso; retomar a reprodução reinicia o prazo completo de seis segundos.
 - Ranges herdados de um recurso anterior não qualificam um vídeo novo; uma mídia de seis segundos não vale como reprodução completa de um vídeo com metadados de cem segundos.
 - Eventos duplicados produzem uma única tentativa; falha não cria retentativa automática; preferência desligada impede a remoção.
@@ -39,6 +39,14 @@ Executar `npm test` para testes unitários e de navegador. Os testes usam o Chro
 - O desbloqueio da ordenação permite mostrar o aviso se o próximo vídeo já estiver tocando.
 - O preview do aviso usa o mesmo botão Não apagar, mas seu caminho de expiração nunca envia pedidos de remoção, inclusive com reprodução pausada.
 - CSP com `require-trusted-types-for 'script'`: o preview permanece visível e o botão Não apagar funciona com a remoção desligada, sem exceções nem pedidos de remoção.
+
+## Versão 1.6.1
+
+Passaram **4 testes unitários e 73 testes de navegador**, sendo **43 casos de remoção e avisos**. Manifesto, 19 referências, ícones e sintaxe JavaScript também passaram.
+
+Oito regressões falhavam antes da correção: avanço aos 90% de um vídeo retomado, término com trechos reproduzidos apenas nesta visita, metadados antes da navegação, navegação para o mesmo vídeo, ausência de um novo evento `playing`, duração disponível tardiamente, seleção visual desatualizada e uma nova passagem após falha anterior. Os testes corrigidos confirmam a remoção nativa simulada, apenas após o início do próximo vídeo e o aviso cancelável de seis segundos. Pausa, Não apagar, outros contextos, mídia reutilizada, falhas de servidor, inclusão, ordenação e reprodução preservada também passaram na suíte completa.
+
+No Edge, a remoção automática estava ligada. A instalação exibiu a versão 1.6.1, os novos scripts foram conferidos na aba recarregada e o aviso foi exibido usando o modo de teste, cujo término não envia pedidos de exclusão. As exclusões dos testes usam playlists simuladas.
 
 ## Versão 1.6.0 — 11 de novembro de 2026
 

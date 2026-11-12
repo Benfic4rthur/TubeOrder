@@ -14,11 +14,11 @@ body{background:#15151a;color:white;font:16px Arial;padding:20px}ytd-masthead,yt
   const metadataDuration=id=>parameters.has('sameDuration')?100:id===OLD?100:id===NEXT?200:300;
   const video=document.querySelector('video');
   const player=document.getElementById('movie_player');
-  const state={id:OLD,duration:100,currentTime:0,paused:false,ended:false,ranges:[],bridgeError:false,src:`blob:fixture-${OLD}`};
+  const state={id:OLD,duration:100,currentTime:0,paused:false,ended:false,seeking:false,ranges:[],bridgeError:false,src:`blob:fixture-${OLD}`};
   const requests=[];
   const results=[];
   const nativeRequests=[];
-  for(const property of ['duration','currentTime','paused','ended']) Object.defineProperty(video,property,{configurable:true,get:()=>state[property],set:value=>{state[property]=value;}});
+  for(const property of ['duration','currentTime','paused','ended','seeking']) Object.defineProperty(video,property,{configurable:true,get:()=>state[property],set:value=>{state[property]=value;}});
   Object.defineProperty(video,'readyState',{get:()=>4});
   Object.defineProperty(video,'currentSrc',{get:()=>state.src});
   Object.defineProperty(video,'played',{get:()=>({length:state.ranges.length,start:index=>state.ranges[index][0],end:index=>state.ranges[index][1]})});
@@ -84,22 +84,22 @@ body{background:#15151a;color:white;font:16px Arial;padding:20px}ytd-masthead,yt
   },true);
   window.addEventListener('tubeorder:remove-watched-result',event=>results.push(structuredClone(event.detail)));
   function event(name){video.dispatchEvent(new Event(name,{bubbles:true}));}
-  function navigate({id=NEXT,listId='WL',playing=true,dataId=id,reuseMedia=false,deferURL=false,ad=false}={}) {
-    document.dispatchEvent(new Event('yt-navigate-start'));
+  function navigate({id=NEXT,listId='WL',playing=true,dataId=id,reuseMedia=false,deferURL=false,ad=false,emitNavigationStart=true,emitPlaying=true,staleSelected=false}={}) {
+    if(emitNavigationStart) document.dispatchEvent(new Event('yt-navigate-start'));
     const targetURL=`/watch?v=${id}&list=${listId}`;
     if(deferURL) state.pendingURL=targetURL;
     else history.pushState({},'',targetURL);
     state.id=dataId;
-    state.paused=!playing;state.ended=false;
+    state.paused=!playing;state.ended=false;state.seeking=false;
     player.classList.toggle('ad-showing',ad);
     if(!reuseMedia){
       state.duration=ad?6:metadataDuration(dataId);state.currentTime=0;state.ranges=[];state.src=`blob:fixture-${id}${ad?'-ad':''}`;
       event('emptied');event('loadstart');event('loadedmetadata');
     }
     if(!parameters.has('staleResponse')) manager.response.playingVideoId=dataId;
-    for(const row of list.children){row.data.selected=row.data.videoId===dataId;row.toggleAttribute('selected',row.data.selected);}
+    for(const row of list.children){row.data.selected=row.data.videoId===dataId||(staleSelected&&row.data.videoId===OLD);row.toggleAttribute('selected',row.data.selected);}
     if(!deferURL) document.dispatchEvent(new Event('yt-navigate-finish'));
-    if(playing){event('play');event('playing');}
+    if(playing&&emitPlaying){event('play');event('playing');}
   }
   function finish(ranges=[[0,100]]) {
     state.ranges=ranges;state.currentTime=100;state.duration=100;state.ended=true;state.paused=true;

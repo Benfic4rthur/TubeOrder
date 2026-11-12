@@ -8,13 +8,18 @@
   const TRANSITION_MS = 90000;
   const epochs = new WeakMap();
   const mediaHistory = new WeakMap();
-  const attempted = new Set();
+  const attempted = new WeakSet();
   let enabled = false, session = null, pending = null, inFlight = null;
   let expiryTimer, noticeTimer, stableTimer, resultTimer;
   let noticeHost, noticeView, resultHost, resultView;
 
   const rowData = row => row?.data || row?.polymerController?.data || null;
   const panelRows = panel => Array.from(panel.querySelectorAll("ytd-playlist-panel-video-renderer"));
+
+  function playing(ctx) {
+    try { return Boolean(ctx && !ctx.media.paused && !ctx.media.ended && !ctx.media.seeking && ctx.media.readyState >= 2 && ctx.player.getPlayerState?.() === 1); }
+    catch { return false; }
+  }
 
   function context() {
     const url = new URL(location.href);
@@ -81,6 +86,7 @@
     const inherited = previous && previous.videoId !== ctx.videoId && previous.source === source && previous.epoch === epoch && rangesFor(ctx.media).length > 0;
     session = { videoId: ctx.videoId, setVideoId, media: ctx.media, duration, source, epoch,
       percent: previousSession?.percent || 0, qualified: Boolean(previousSession?.qualified), transitioning: false, inherited: Boolean(inherited), observed: [],
+      hasPlayed: Boolean(previousSession?.hasPlayed || playing(ctx)),
       lastTime: ctx.media.currentTime, lastWall: performance.now(), lastCoverageRead: -Infinity };
     mediaHistory.set(ctx.media, { videoId: ctx.videoId, source, epoch });
     if (!session.qualified) {
@@ -96,8 +102,14 @@
     if (source !== current.source || (epochs.get(ctx.media) || 0) !== current.epoch) return;
     if (!Number.isFinite(ctx.media.duration) || Math.abs(ctx.media.duration - current.duration) > Math.max(1, current.duration * 0.002)) return;
     const watched = coveredSeconds(current.inherited ? current.observed : rangesFor(ctx.media), current.duration);
-    current.percent = Math.min(100, watched / current.duration * 100);
-    if (watched + Math.min(0.5, current.duration * 0.001) >= current.duration * 0.8) {
+    current.hasPlayed ||= playing(ctx);
+    const position = Number.isFinite(ctx.media.currentTime) ? Math.max(0, Math.min(100, ctx.media.currentTime / current.duration * 100)) : 0;
+    // A resumed video's played ranges cover only this visit. Near the end,
+    // accept its actual playback position as well as 80% session coverage.
+    // A stale cursor on a reused media resource is not progress for a new video.
+    const nearEnd = current.hasPlayed && position >= 90 && (!current.inherited || watched > 0 || ctx.media.ended);
+    current.percent = Math.min(100, Math.max(watched / current.duration * 100, nearEnd ? position : 0));
+    if (nearEnd || watched + Math.min(0.5, current.duration * 0.001) >= current.duration * 0.8) {
       current.qualified = true;
       current.media.removeEventListener("timeupdate", onTimeUpdate);
     }
@@ -164,9 +176,9 @@
     measure(current); current.transitioning = true; detachTracking();
     if (pending?.videoId === current.videoId) return;
     clearPending();
-    if (!current.qualified || attempted.has(current.setVideoId)) return;
+    if (!current.qualified || attempted.has(current)) return;
     pending = { videoId: current.videoId, setVideoId: current.setVideoId,
-      percent: Math.max(80, Math.round(current.percent)), nextVideoId: null, nextPlaying: false, deadline: null };
+      percent: Math.max(80, Math.round(current.percent)), session: current, nextVideoId: null, nextPlaying: false, deadline: null };
     expiryTimer = setTimeout(clearPending, TRANSITION_MS);
   }
 
@@ -187,8 +199,7 @@
       return;
     }
     if (pending !== candidate || !nextIsPlaying(candidate) || document.getElementById("tubeorder-lock") || inFlight) { hideNotice(); return; }
-    clearPending(); attempted.add(candidate.setVideoId);
-    if (attempted.size > 64) attempted.delete(attempted.values().next().value);
+    clearPending(); attempted.add(candidate.session);
     const requestId = crypto.randomUUID(); inFlight = requestId;
     window.dispatchEvent(new CustomEvent("tubeorder:remove-watched-request", { detail: {
       requestId, videoId: candidate.videoId, setVideoId: candidate.setVideoId, nextVideoId: candidate.nextVideoId,
@@ -226,16 +237,29 @@
     if (!enabled) return;
     const ctx = context();
     if (!ctx || event.target !== ctx.media) return;
+    synchronize(ctx, true);
+  }
+
+  function synchronize(ctx, observedPlaying = false) {
+    if (!ctx) return;
+    // Metadata and navigation can arrive before playing (or without a new
+    // playing event). Stage the old session before replacing its identity.
     if (session && session.videoId !== ctx.videoId && !session.transitioning) stagePrevious();
     if (pending) {
-      if (ctx.videoId === pending.videoId) clearPending();
-      else {
+      if (ctx.videoId === pending.videoId && ctx.url.searchParams.get("v") === ctx.videoId) clearPending();
+      else if (ctx.videoId !== pending.videoId) {
         if (pending.nextVideoId && pending.nextVideoId !== ctx.videoId) clearPending();
-        else { pending.nextVideoId = ctx.videoId; pending.nextPlaying = true; }
+        else { pending.nextVideoId = ctx.videoId; pending.nextPlaying ||= observedPlaying || playing(ctx); }
       }
     }
     const current = ensureSession(ctx);
-    if (current) { current.transitioning = false; current.lastTime = ctx.media.currentTime; current.lastWall = performance.now(); }
+    if (current) {
+      current.transitioning = false;
+      current.hasPlayed ||= observedPlaying || playing(ctx);
+      current.lastTime = ctx.media.currentTime; current.lastWall = performance.now();
+      if (!current.qualified) ctx.media.addEventListener("timeupdate", onTimeUpdate);
+      measure(current, ctx);
+    }
     maybeNotice();
   }
 
@@ -276,7 +300,7 @@
       return;
     }
     if (pending?.nextVideoId && ctx.videoId !== pending.nextVideoId && ctx.videoId !== pending.videoId) clearPending();
-    ensureSession(ctx); maybeNotice();
+    synchronize(ctx);
   }
 
   function onMediaReady(event) {
@@ -288,17 +312,18 @@
     ["loadstart", onResourceReset], ["emptied", onResourceReset], ["seeking", onSeek], ["seeked", onSeek],
     ["click", onManualNext], ["keydown", onManualNext], ["yt-navigate-start", onNavigationStart],
     ["yt-navigate-finish", onNavigationFinish], ["loadedmetadata", onMediaReady],
+    ["durationchange", onMediaReady], ["canplay", onMediaReady],
   ];
   window.addEventListener("tubeorder:cleanup-settings", event => {
     const nextEnabled = event.detail?.enabled === true;
     if (nextEnabled === enabled) return;
     enabled = nextEnabled;
     for (const [name, handler] of listeners) document[enabled ? "addEventListener" : "removeEventListener"](name, handler, true);
-    if (enabled) ensureSession(context());
+    if (enabled) synchronize(context());
     else { clearPending(); clearResult(); detachTracking(); session = null; }
   });
   window.addEventListener("tubeorder:sort-unlocked", () => { if (enabled) maybeNotice(); });
-  window.addEventListener("tubeorder:cleanup-context-ready", () => { if (enabled) ensureSession(context()); });
+  window.addEventListener("tubeorder:cleanup-context-ready", () => { if (enabled) synchronize(context()); });
   window.addEventListener("tubeorder:cleanup-preview", () => {
     const ctx = context();
     if (!ctx || pending || inFlight || document.getElementById("tubeorder-lock")) return;
