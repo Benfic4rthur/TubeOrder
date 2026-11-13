@@ -270,9 +270,10 @@
       :host { display:inline-block; width:fit-content; max-width:100%; overflow-x:auto; overflow-y:hidden; color-scheme:dark; font-family:ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
       * { box-sizing:border-box; }
       .notice { display:flex; flex-wrap:nowrap; align-items:center; gap:5px; width:max-content; height:32px; white-space:nowrap; padding:3px 5px; border:1px solid #bea1ff32; border-radius:9px; background:#2b213b; color:#c1b5d1; }
-      .mini-mark { display:grid; place-items:center; flex:none; width:20px; height:20px; border-radius:5px; background:linear-gradient(140deg,#ddd0ff,#ad8af7); color:#231a3c; }
+      .mini-mark { display:grid; place-items:center; flex:none; width:24px; height:24px; padding:2px; border-radius:5px; background:linear-gradient(140deg,#ddd0ff,#ad8af7); color:#231a3c; }
       .mini-mark svg { width:17px; height:17px; }
-      p { flex:none; display:flex; align-items:center; gap:4px; margin:0 0 0 3px; font-size:11px; line-height:1.4; white-space:nowrap; }
+      p { flex:none; display:grid; place-items:center; width:20px; margin:0; font-size:11px; line-height:1.4; white-space:nowrap; }
+      .status-text { position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap; }
       p.organized { color:#a8dcb6; }
       p.disorder { color:#ffb1aa; }
       .status-mark { font-size:13px; font-weight:800; line-height:1; }
@@ -284,8 +285,15 @@
       button[aria-pressed="true"] { background:#ddcaff; border-color:#f1e8ff; color:#251a3b; }
       button:disabled { opacity:.5; cursor:default; }
       button:focus-visible { outline:2px solid #e4d5ff; outline-offset:3px; }
-    </style><aside class="notice" aria-label="Organizar por duração"><span class="mini-mark" title="TubeOrder">${icon}</span><button type="button" data-reorganize title="Reaplicar a última ordem escolhida">Reorganizar</button><button type="button" data-order="asc" aria-label="Mais curtos primeiro" aria-pressed="false" title="Mais curtos primeiro">Curtos primeiro</button><button type="button" data-order="desc" aria-label="Mais longos primeiro" aria-pressed="false" title="Mais longos primeiro">Longos primeiro</button><p role="status"><span class="status-mark" aria-hidden="true" hidden></span><span class="status-text">Itens carregados em ordem</span></p></aside>`;
-    const buttons = [...shadow.querySelectorAll("button")];
+      .arrow { display:grid;place-items:center;width:26px;padding:2px; }
+      .arrow svg { width:16px;height:16px; }
+      .history { color:#dfcffb;background:#c5aaff12;border-color:#c5aaff40; }
+      .history:hover:not(:disabled) { color:#eee7ff;background:#c5aaff2c; }
+      .history[aria-pressed="true"] { background:#c5aaff;color:#251a3b;border-color:#ddcaff; }
+    </style><aside class="notice" aria-label="Organizar por duração"><button type="button" class="mini-mark" data-reorganize aria-label="Reorganizar" title="TubeOrder — Reorganizar pela última ordem">${icon}</button><button type="button" class="arrow" data-order="asc" aria-label="Mais curtos primeiro" aria-pressed="false" title="Mais curtos primeiro"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3v14m-5-5 5 5 5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><button type="button" class="arrow" data-order="desc" aria-label="Mais longos primeiro" aria-pressed="false" title="Mais longos primeiro"><svg viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 17V3m-5 5 5-5 5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button><p role="status" title="Conferindo a organização"><span class="status-mark" aria-hidden="true" hidden></span><span class="status-text">Itens carregados em ordem</span></p><button type="button" class="history" data-history aria-label="Removidos" aria-pressed="false" title="Mostrar vídeos removidos recentemente">Removidos</button></aside>`;
+    const buttons = [...shadow.querySelectorAll("button[data-order],button[data-reorganize]")];
+    const history = shadow.querySelector("[data-history]");
+    history.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); handlers.onHistory?.(); });
     const message = shadow.querySelector(".status-text");
     const statusLine = shadow.querySelector("p");
     const mark = shadow.querySelector(".status-mark");
@@ -305,16 +313,20 @@
         for (const button of buttons) {
           button.disabled = Boolean(status.busy) || status.count === 0;
           if (button.dataset.order) button.setAttribute("aria-pressed", String(!disorder && status.order === button.dataset.order));
-          else button.title = `Reorganizar: ${currentOrder === "desc" ? "longos" : "curtos"} primeiro`;
+          else button.title = `TubeOrder — Reorganizar: ${currentOrder === "desc" ? "longos" : "curtos"} primeiro`;
         }
         const empty = status.count === 0;
         const organized = !empty && !disorder && Boolean(status.complete) && status.phase !== "error";
         message.textContent = status.phase === "error" ? "Falha ao organizar" : empty ? "Lista vazia" : disorder ? "Vídeos desorganizados" : organized ? "Vídeos organizados" : "Itens carregados em ordem";
-        statusLine.title = status.phase === "error" ? status.detail || status.message : "";
+        statusLine.title = status.phase === "error" ? `Falha ao organizar: ${status.detail || status.message}` : message.textContent;
         statusLine.classList.toggle("disorder", !empty && (disorder || status.phase === "error"));
         statusLine.classList.toggle("organized", organized);
-        mark.textContent = organized ? "✓" : !empty && disorder ? "×" : "";
-        mark.hidden = !organized && (empty || !disorder);
+        const badOrder = !empty && (disorder || status.phase === "error");
+        mark.textContent = organized ? "✓" : badOrder ? "×" : "";
+        mark.hidden = !organized && !badOrder;
+        history.disabled = Boolean(status.busy);
+        history.setAttribute("aria-pressed", String(Boolean(status.historyOpen)));
+        history.title = status.historyOpen ? "Voltar ao Assistir mais tarde" : "Mostrar vídeos removidos recentemente";
       },
       destroy() {
         destroyed = true;

@@ -36,6 +36,7 @@
   }
 
   function reveal(videoId) {
+    if (document.querySelector(".tubeorder-history-open")) return;
     if (!videoId || videoKey() !== videoId || document.getElementById("tubeorder-lock")) return;
     const renderer = panel();
     if (!renderer) return;
@@ -88,6 +89,7 @@
   document.addEventListener("yt-navigate-start", () => { lastVideo = null; cancel(); });
   document.addEventListener("yt-navigate-finish", ready);
   window.addEventListener("tubeorder:sidebar-ready", ready);
+  window.addEventListener("tubeorder:removed-closed", schedule);
   window.addEventListener("tubeorder:sort-unlocked", schedule);
   ready();
 })();

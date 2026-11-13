@@ -114,7 +114,15 @@
       const header = panel?.querySelector("#publisher-container") || panel?.querySelector("#header-description") || panel?.querySelector("#header-contents") || panel;
       // The player repeats its count in hidden accessibility text. textContent
       // concatenates "1 / 31" twice into "1 / 311 / 31". Read visible text.
-      const visibleText = header?.innerText || header?.textContent || "";
+      const nativeText = node => {
+        if (node.nodeType === Node.TEXT_NODE) return node.textContent;
+        if (node.nodeType !== Node.ELEMENT_NODE) return "";
+        if (node !== header && (node.hasAttribute("hidden") || node.getAttribute("aria-hidden") === "true" || getComputedStyle(node).display === "none")) return "";
+        return [...node.childNodes].map(nativeText).join(" ");
+      };
+      // Removidos temporarily hides this header. innerText then includes the
+      // hidden accessibility duplicate, so read only its native visible nodes.
+      const visibleText = header?.getClientRects().length ? header.innerText : header ? nativeText(header) : "";
       const match = visibleText.match(/\/\s*([\d.,]+)/);
       return match ? Number(match[1].replace(/\D/g, "")) || null : null;
     }
@@ -129,6 +137,7 @@
   function update(patch = {}) {
     status = { ...status, ...patch };
     if (status.busy && !host && isWatchLater() && isLoggedIn()) {
+      globalThis.TubeOrderRemoved?.suspend();
       hideNotice();
       host = document.createElement("div");
       host.id = "tubeorder-lock";
@@ -179,11 +188,18 @@
         noticeHost.style.cssText = "display:block;margin:2px 0 8px;";
         renderer.parentNode.insertBefore(noticeHost, renderer);
       }
-      notice = globalThis.TubeOrderUI.mountNotice(noticeHost, { onSort: startSort });
+      notice = globalThis.TubeOrderUI.mountNotice(noticeHost, {
+        onSort: order => { globalThis.TubeOrderRemoved?.close(); startSort(order); },
+        onHistory: () => globalThis.TubeOrderRemoved?.toggle()
+      });
     }
     const total = expectedTotal();
+    const complete = total !== null ? videos.length >= total : status.phase === "done";
+    globalThis.TubeOrderRemoved?.sync({ renderer: list.closest(LIST_RENDERER), list, noticeHost,
+      complete, onChange: checkOrder });
     notice.update({ ...status, count: videos.length, order: preferredOrder, disorder,
-      complete: total !== null && videos.length >= total });
+      historyOpen: globalThis.TubeOrderRemoved?.isOpen() || false,
+      complete });
   }
 
   function reconcile() {
@@ -200,6 +216,8 @@
       ui = null;
       host = null;
       hideNotice();
+      if (navigating && isWatchLater() && isLoggedIn()) globalThis.TubeOrderRemoved?.suspend();
+      else globalThis.TubeOrderRemoved?.destroy();
       list = null;
       watchList(null);
       globalThis.TubeOrderRowActions?.destroy();

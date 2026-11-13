@@ -11,7 +11,7 @@ Executar `npm test` para testes unitários e de navegador. Os testes usam o Chro
 - Organização automática ao entrar no Assistir mais tarde, respeitando a última regra salva.
 - Comandos manuais enviados pelo contexto da extensão, como no popup, sem painel permanente na playlist.
 - Bloqueio da página somente durante o trabalho, removido após sucesso, cancelamento ou erro.
-- Barra compacta com dois botões na mesma linha, altura de até 34 pixels, status de organização e escolha lembrada após atualizar.
+- Barra compacta com quatro botões em uma linha: ícone para reorganizar, setas de ordem e Removidos; status por ícone, tooltips e escolha lembrada após atualizar.
 - Carregamento automático de 157 vídeos em quatro páginas.
 - Gravação de 157 vídeos em lotes de até 50 ações, com no máximo quatro chamadas nativas e nenhum menu individual.
 - Persistência da ordem em lote ao atualizar; uma lista já ordenada não gera novas chamadas.
@@ -39,6 +39,14 @@ Executar `npm test` para testes unitários e de navegador. Os testes usam o Chro
 - O desbloqueio da ordenação permite mostrar o aviso se o próximo vídeo já estiver tocando.
 - O preview do aviso usa o mesmo botão Não apagar, mas seu caminho de expiração nunca envia pedidos de remoção, inclusive com reprodução pausada.
 - CSP com `require-trusted-types-for 'script'`: o preview permanece visível e o botão Não apagar funciona com a remoção desligada, sem exceções nem pedidos de remoção.
+
+## Versão 1.7.0 — 13 de novembro de 2026
+
+Passaram **4 testes unitários e 85 testes de navegador**. Os **12 testes novos** cobrem a barra mínima, tooltips, cores do botão marcado, alternância no mesmo painel sem editar a fila ou comandar a reprodução, metadados completos, persistência após recarregar, restauração pelo `ACTION_ADD_VIDEO` nativo, falhas, prevenção de duplicatas, item retido apenas no player, playlist vazia, contas separadas, navegação SPA, concorrência entre abas, limite de 500 registros, recuperação de uma aba interrompida e registro da remoção automática. Os testes usam a extensão real com transporte do YouTube simulado; não excluem vídeos de contas reais.
+
+Manifesto, 21 referências, ícones e sintaxe JavaScript também foram conferidos. O histórico renderiza 50 cartões por vez, libera sua visualização ao fechar e não acrescenta consultas periódicas.
+
+A instalação no Edge exibiu a versão 1.7.0. A barra mínima, a abertura de Removidos no mesmo painel, o estado marcado e a volta ao Assistir mais tarde foram conferidos na conta real, sem excluir vídeos para teste. As miniaturas e a restauração foram validadas com as playlists simuladas.
 
 ## Versão 1.6.1
 

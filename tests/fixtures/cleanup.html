@@ -10,6 +10,7 @@ body{background:#15151a;color:white;font:16px Arial;padding:20px}ytd-masthead,yt
   const OLD='old00000001', NEXT='next0000001', OTHER='other000001';
   const nativeRemoval=new URLSearchParams(location.search).has('native');
   const parameters=new URLSearchParams(location.search);
+  window.ytcfg={get:key=>key==='DATASYNC_ID'?'fixture-history-account':undefined};
   const playlist=parameters.has('three')?[OLD,NEXT,OTHER]:[OLD,NEXT];
   const metadataDuration=id=>parameters.has('sameDuration')?100:id===OLD?100:id===NEXT?200:300;
   const video=document.querySelector('video');

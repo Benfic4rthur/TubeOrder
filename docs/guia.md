@@ -5,7 +5,7 @@
 ## Como usar
 
 1. Abra o YouTube com sua conta conectada e entre em [Assistir mais tarde](https://www.youtube.com/playlist?list=WL), ou abra um vídeo dessa playlist com `list=WL` na URL. A TubeOrder organiza automaticamente ao entrar em uma dessas telas, usando a última ordem escolhida neste navegador. Na primeira utilização, organiza dos mais curtos para os mais longos.
-2. Para trocar a ordem, use **Curtos primeiro** ou **Longos primeiro** na faixa roxa compacta. O botão **Reorganizar**, antes deles, reaplica a última regra escolhida. Na página da playlist, a faixa fica ao lado do seletor **Manual**; durante a reprodução, fica no cabeçalho da playlist lateral, junto ao nome do dono da playlist e à contagem de vídeos. Você também pode clicar no ícone roxo da TubeOrder na barra do navegador e escolher **Mais curtos primeiro** ou **Mais longos primeiro**. A escolha fica salva para as próximas entradas.
+2. Na faixa roxa, use **↓** para curtos primeiro e **↑** para longos primeiro. O ícone do TubeOrder antes das setas reorganiza pela última regra escolhida. Todos os controles têm explicação ao passar o mouse. Na página da playlist, a faixa fica ao lado do seletor **Manual**; durante a reprodução, fica no cabeçalho da lista lateral. O ícone fixado na barra do navegador continua abrindo o popup com as opções por extenso. A escolha fica salva para as próximas entradas.
 3. Deixe a aba aberta enquanto a extensão carrega os vídeos e salva a sequência. O bloqueio de interação mostra **Aguarde enquanto o TubeOrder organiza seus vídeos**, o progresso e a estimativa de tempo restante. Na tela de reprodução, o vídeo permanece visível e o cartão de progresso fica ao lado quando há espaço. Para interromper, clique em **Parar organização** ou pressione **Esc**.
 4. Quando terminar, use **Reproduzir tudo** no YouTube. Mantenha a reprodução aleatória desativada para seguir a ordem.
 
@@ -15,7 +15,7 @@ Na tela de reprodução, a organização automática ocorre ao entrar no Assisti
 
 Se o YouTube atualizar a lista antes do cache interno de edição, o TubeOrder sincroniza a composição dessa fila antes de usar o manipulador nativo de mover. Isso só ocorre com a lista visível e o modelo nativo concordando, os itens compartilhados na mesma ordem e nenhuma gravação pendente. A conclusão ainda exige a confirmação da ordem devolvida pelo YouTube.
 
-A faixa compacta permanece em uma linha e indica **✓ Vídeos organizados**, em verde, ou **× Vídeos desorganizados**, em vermelho. **Itens carregados em ordem** significa que apenas a parte carregada foi verificada; **Lista vazia** indica que não há vídeos exibidos. A organização automática carrega o restante da playlist antes de confirmar a sequência completa.
+A faixa permanece em uma linha. O status mostra somente **✓ verde** ou **× vermelho**; passe o mouse para ler a explicação. O título também indica lista vazia, falha ou verificação apenas da parte carregada. A organização automática carrega o restante antes de confirmar a sequência completa.
 
 ## Remover vídeos assistidos
 
@@ -70,6 +70,14 @@ A extensão preserva trechos já ordenados para reduzir a quantidade de moviment
 Se o YouTube não oferecer os comandos de mover, escolha **Manual** no seletor de ordenação da playlist e tente novamente.
 
 A extensão depende dos componentes da interface do YouTube; mudanças no site podem exigir uma atualização. Ela não baixa vídeos nem faz backups.
+
+## Consultar e restaurar removidos
+
+Clique em **Removidos**, depois do status. O botão marcado ganha o roxo claro da extensão. O cabeçalho muda para Removidos, e os cartões aparecem no mesmo espaço da playlist, com miniatura, duração, título e canal. Clique no mesmo botão novamente para voltar. A troca de visualização preserva a lista e a reprodução. O título de cada cartão informa a data da remoção ao passar o mouse.
+
+Use **Restaurar** para incluir o vídeo novamente no Assistir mais tarde da conta conectada. A operação precisa da confirmação do servidor antes de tirar o registro do histórico. Falhas mantêm o cartão disponível; um vídeo que já apareça na lista desta aba não é incluído outra vez, e seu registro é preservado. Ao entrar na fila, ele segue a regra de ordenação salva.
+
+São guardados até **500 vídeos recentes por conta**, localmente no navegador. O registro começa nesta versão e contém apenas os metadados necessários para reconhecer e recuperar os links. Inclui remoções manuais e automáticas do TubeOrder e os comandos nativos confirmados que ele consegue observar na aba. Não recupera remoções anteriores ao registro ou realizadas em outra sessão/dispositivo sem a extensão ativa. Não é uma cópia nem um backup do vídeo. Ao atualizar, mantenha a mesma instalação da extensão para conservar o armazenamento local.
 
 ## Salvar recomendados no Assistir mais tarde
 

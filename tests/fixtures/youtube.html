@@ -10,6 +10,7 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
 <script>
 (() => {
   const parameters = new URLSearchParams(location.search);
+  window.ytcfg={get:key=>key==='DATASYNC_ID'?(parameters.get('account')||'fixture-history-account'):undefined};
   const large = parameters.has('large');
   const noLogin = parameters.has('signedout');
   const blocked = parameters.has('blocked');
@@ -22,7 +23,9 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
   const videos = large
     ? Array.from({length: 157}, (_, i) => ({id:`video${String(i).padStart(6,'0')}`,duration:((157-i)%60)+':'+String((i*7)%60).padStart(2,'0')}))
     : [{id:'long0000001',duration:'1:02:03'}, {id:'short000001',duration:'0:45'}, {id:'medium00001',duration:'9:40'}, {id:'private0001',duration:''}, {id:'tie00000001',duration:'9:40'}];
+  const initialIds=new Set(videos.map(video=>video.id));
   videos.push(...JSON.parse(localStorage.getItem('fixture-extra-videos')||'[]'));
+  window.fixtureCatalog=Object.fromEntries(videos.map(video=>[video.id,{...video}]));
   const removedIds=JSON.parse(localStorage.getItem('fixture-removed')||'[]');
   for(let i=videos.length-1;i>=0;i--) if(removedIds.includes(videos[i].id)) videos.splice(i,1);
   if (parameters.has('sorted')) videos.sort((a,b)=>{
@@ -155,7 +158,7 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
       window.fixtureSaveCalls.push(structuredClone(edit.actions));
       event.detail.returnValue.push({ajaxPromise:new Promise(resolve=>setTimeout(()=>{
         if(parameters.has('saveerror')) {resolve({data:{status:'STATUS_FAILED'}});return;}
-        if(!parameters.has('saveambiguous')) window.fixtureAddVideo(edit.actions[0].addedVideoId,'0:20');
+        if(!parameters.has('saveambiguous')) window.fixtureAddVideo(edit.actions[0].addedVideoId,window.fixtureCatalog[edit.actions[0].addedVideoId]?.duration||'0:20');
         resolve({data:parameters.has('saveambiguous')?{}:{status:'STATUS_SUCCEEDED'}});
       },parameters.has('slowsave')?500:35))});
       return;
@@ -228,8 +231,10 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
     document.body.append(popup);
   }
   window.fixtureAddVideo=(id='added000001',duration='0:20')=>{
+    if(videos.some(video=>video.id===id)) return;
     const video={id,duration};videos.push(video);order.unshift(id);loaded+=1;
-    const extras=JSON.parse(localStorage.getItem('fixture-extra-videos')||'[]');extras.push(video);localStorage.setItem('fixture-extra-videos',JSON.stringify(extras));
+    const removed=JSON.parse(localStorage.getItem('fixture-removed')||'[]');localStorage.setItem('fixture-removed',JSON.stringify(removed.filter(value=>value!==id)));
+    const extras=JSON.parse(localStorage.getItem('fixture-extra-videos')||'[]').filter(video=>video.id!==id);if(!initialIds.has(id))extras.push(video);localStorage.setItem('fixture-extra-videos',JSON.stringify(extras));
     list.prepend(makeRow(video));
     document.getElementById('total').textContent=`${videos.length} vídeos`;
     const publisher=document.getElementById('publisher-container');if(publisher)publisher.firstElementChild.textContent=`1 / ${videos.length}`;

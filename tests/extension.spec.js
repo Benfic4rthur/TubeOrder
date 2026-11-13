@@ -146,7 +146,7 @@ test('barra compacta fica em uma linha, organiza pelos dois botões e lembra a e
   await expect(notice.getByRole('status')).toHaveText(/Vídeos organizados/);
   expect((await notice.locator('.notice').boundingBox()).height).toBeLessThanOrEqual(34);
   const buttons=notice.getByRole('button');
-  await expect(buttons).toHaveCount(3);
+  await expect(buttons).toHaveCount(4);
   const tops=await buttons.evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().top));
   expect(Math.max(...tops)-Math.min(...tops)).toBeLessThanOrEqual(1);
   await notice.getByRole('button',{name:'Mais longos primeiro',exact:true}).click();
