@@ -4,7 +4,7 @@
   globalThis.__tubeOrderRemovedBridgeLoaded = true;
   const rowData = row => row?.data || row?.polymerController?.data || row?.inst?.data;
   const text = value => typeof value === "string" ? value : value?.simpleText || value?.runs?.map(run => run.text).join("") || "";
-  const observed = new WeakSet(), restoring = new Set();
+  const observed = new WeakSet(), managed = new WeakSet(), transactions = new WeakMap(), restoring = new Set();
   let identity = null, keyPromise = null;
   function context() {
     const url = new URL(location.href), avatar = document.querySelector("ytd-masthead #avatar-btn, #masthead #avatar-btn");
@@ -35,22 +35,47 @@
   function publish(account, entries, phase) {
     void account.then(accountKey => { if (accountKey) window.dispatchEvent(new CustomEvent("tubeorder:removed-record", { detail: { accountKey, entries, phase } })); });
   }
+  function stage(entries) {
+    if (!entries.length || !context()) return null;
+    const token = {}, transaction = { account: accountKey(), entries };
+    transactions.set(token, transaction);
+    publish(transaction.account, entries, "pending");
+    return token;
+  }
+  function settle(token, phase) {
+    const transaction = transactions.get(token);
+    if (!transaction || !["done", "failed"].includes(phase)) return;
+    transactions.delete(token);
+    publish(transaction.account, transaction.entries, phase);
+  }
+  // Our removal sender already has the exact row and server response. Archive
+  // there directly, even when YouTube handles/stops the event above document.
+  globalThis.TubeOrderRemovedBridge = Object.freeze({
+    begin(row, detail) {
+      const entry = metadata(row);
+      if (!entry || !context()) return null;
+      managed.add(detail);
+      return stage([entry]);
+    },
+    settle,
+  });
   document.addEventListener("yt-action", event => {
-    if (!context() || event.detail?.actionName !== "yt-service-request") return;
+    if (!context() || managed.has(event.detail) || event.detail?.actionName !== "yt-service-request") return;
     const endpoint = event.detail.args?.[1], edit = endpoint?.playlistEditEndpoint;
     if (endpoint?.commandMetadata?.webCommandMetadata?.apiUrl !== "/youtubei/v1/browse/edit_playlist" || edit?.playlistId !== "WL" || !Array.isArray(edit.actions) || !edit.actions.length || edit.actions.length > 50 ||
         edit.actions.some(action => action.action !== "ACTION_REMOVE_VIDEO")) return;
     const visible = rows();
     const entries = edit.actions.map(action => metadata(visible.find(row => (rowData(row)?.playlistSetVideoId || rowData(row)?.setVideoId) === action.setVideoId))).filter(Boolean);
     if (!entries.length) return;
-    const account = accountKey();
-    publish(account, entries, "pending");
+    const token = stage(entries);
     queueMicrotask(() => {
       const promise = event.detail.returnValue?.find(value => value?.ajaxPromise)?.ajaxPromise;
-      if (!promise || typeof promise.then !== "function") { publish(account, entries, "failed"); return; }
-      if (observed.has(promise)) { publish(account, entries, "failed"); return; }
+      // An unobservable response is inconclusive. Keep staged metadata until a
+      // complete saved list can confirm whether the item actually disappeared.
+      if (!promise || typeof promise.then !== "function") return;
+      if (observed.has(promise)) { settle(token, "failed"); return; }
       observed.add(promise);
-      void Promise.resolve(promise).then(response => publish(account, entries, (response?.data || response)?.status === "STATUS_SUCCEEDED" ? "done" : "failed"), () => publish(account, entries, "failed"));
+      void Promise.resolve(promise).then(response => settle(token, (response?.data || response)?.status === "STATUS_SUCCEEDED" ? "done" : "failed"), () => settle(token, "failed"));
     });
   }, true);
   window.addEventListener("tubeorder:history-context-request", event => {

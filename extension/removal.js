@@ -178,6 +178,8 @@
       actionName: "yt-service-request", optionalAction: false,
       args: [anchor, prepared.endpoint], returnValue: [],
     };
+    const archive = globalThis.TubeOrderRemovedBridge;
+    const record = archive?.begin(anchor, detail);
     anchor.dispatchEvent(new CustomEvent("yt-action", { bubbles: true, composed: true, detail }));
     const nativeRequest = detail.returnValue.find((value) => value?.ajaxPromise);
     if (!nativeRequest || typeof nativeRequest.ajaxPromise.then !== "function") throw new Error("O YouTube não confirmou o envio da remoção. O vídeo não será enviado novamente automaticamente.");
@@ -192,7 +194,12 @@
         }),
       ]);
       const result = response?.data || response;
-      if (result?.status !== "STATUS_SUCCEEDED") throw new Error("O YouTube não confirmou a remoção. Não vou tentar novamente automaticamente.");
+      if (result?.status !== "STATUS_SUCCEEDED") {
+        archive?.settle(record, "failed");
+        throw new Error("O YouTube não confirmou a remoção. Não vou tentar novamente automaticamente.");
+      }
+      // Save on server acknowledgement, before waiting for the playback queue.
+      archive?.settle(record, "done");
       anchor.dispatchEvent(new CustomEvent("yt-service-request-completed", { bubbles: true, composed: true, detail: response }));
       return response;
     } finally { clearTimeout(timeout); }

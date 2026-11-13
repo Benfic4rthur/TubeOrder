@@ -56,11 +56,12 @@ body{background:#15151a;color:white;font:16px Arial;padding:20px}ytd-masthead,yt
   const manager={listId:'WL',responsePlaylistData:{playlistId:'WL',contents:contents()},response:{playingVideoId:OLD},playlistProxy:{videoIds:[...playlist],pendingUpdates:[]},playbackManager};
   if(nativeRemoval) {
     if(!parameters.has('noInternals')) window.default_kevlar_base={dg:()=>manager};
-    document.addEventListener('yt-action',event=>{
+    (parameters.has('captureRequest') ? window : document).addEventListener('yt-action',event=>{
       if(event.detail?.actionName!=='yt-service-request') return;
       const endpoint=event.detail.args?.[1];
       const edit=endpoint?.playlistEditEndpoint;
       if(!edit||edit.playlistId!=='WL'||edit.actions?.length!==1||edit.actions[0].action!=='ACTION_REMOVE_VIDEO') return;
+      if(parameters.has('captureRequest')) event.stopPropagation();
       nativeRequests.push(structuredClone(edit));
       event.detail.returnValue.push({ajaxPromise:new Promise(resolve=>setTimeout(()=>{
         if(state.bridgeError){resolve({data:{status:'STATUS_FAILED'}});return;}
@@ -75,7 +76,7 @@ body{background:#15151a;color:white;font:16px Arial;padding:20px}ytd-masthead,yt
         document.getElementById('publisher-container').innerHTML='<span>1 / 1</span><span hidden>1 / 1</span>';
         resolve({data:{status:'STATUS_SUCCEEDED'}});
       },35))});
-    });
+    },parameters.has('captureRequest'));
   }
   window.addEventListener('tubeorder:remove-watched-request',event=>{
     requests.push(structuredClone(event.detail));

@@ -141,12 +141,46 @@ test('o histórico é separado por conta e a visualização marcada acompanha a 
   await page.goto(base);await done(page);await openHistory(page);await expect(removed(page)).toContainText('Vídeo long0000001');
 });
 
-test('gravações de abas diferentes não perdem registros e o histórico fica limitado a 500 vídeos',async()=>{
+test('gravações de abas diferentes mantêm somente os 30 removidos mais recentes',async()=>{
   const a=await open(),b=await open(),key=await accountKey(a);
   await Promise.all([a.evaluate(key=>{for(let batch=0;batch<6;batch++){const entries=Array.from({length:50},(_,i)=>({id:crypto.randomUUID(),videoId:'arc'+String(batch*50+i).padStart(8,'0'),title:'Vídeo removido',removedAt:Date.now()}));window.dispatchEvent(new CustomEvent('tubeorder:removed-record',{detail:{accountKey:key,phase:'done',entries}}));}},key),b.evaluate(key=>{for(let batch=6;batch<12;batch++){const entries=Array.from({length:50},(_,i)=>({id:crypto.randomUUID(),videoId:'arc'+String(batch*50+i).padStart(8,'0'),title:'Vídeo removido',removedAt:Date.now()}));window.dispatchEvent(new CustomEvent('tubeorder:removed-record',{detail:{accountKey:key,phase:'done',entries}}));}},key)]);
-  await expect.poll(async()=>(await history(a)).length).toBe(500);
-  const entries=await history(a);expect(new Set(entries.map(e=>e.videoId)).size).toBe(500);expect(JSON.stringify(entries).length).toBeLessThan(600000);
-  await openHistory(a);await expect(removed(a).getByRole('listitem')).toHaveCount(50);await removed(a).getByRole('button',{name:'Mostrar mais',exact:true}).click();await expect(removed(a).getByRole('listitem')).toHaveCount(100);
+  await expect.poll(async()=>(await history(a)).length).toBe(30);
+  const entries=await history(a);expect(new Set(entries.map(e=>e.videoId)).size).toBe(30);expect(JSON.stringify(entries).length).toBeLessThan(30000);
+  await openHistory(a);await expect(removed(a).getByRole('listitem')).toHaveCount(30);await expect(removed(a).getByRole('button',{name:'Mostrar mais',exact:true})).toHaveCount(0);
+});
+
+test('o 31º removido substitui o mais antigo, sem descartar nada numa tentativa que falha',async()=>{
+  const page=await open(),key=await accountKey(page);
+  await page.evaluate(key=>{const start=Date.now()-60000;window.dispatchEvent(new CustomEvent('tubeorder:removed-record',{detail:{accountKey:key,phase:'done',entries:Array.from({length:30},(_,i)=>({id:crypto.randomUUID(),videoId:'old'+String(i).padStart(8,'0'),removedAt:start+i}))}}));},key);
+  await expect.poll(async()=>(await history(page)).length).toBe(30);
+  const attempt=await page.evaluate(key=>{const entry={id:crypto.randomUUID(),videoId:'new00000001',removedAt:Date.now()};window.dispatchEvent(new CustomEvent('tubeorder:removed-record',{detail:{accountKey:key,phase:'pending',entries:[entry]}}));return entry;},key);
+  await expect.poll(async()=>(await history(page)).length).toBe(31);
+  await page.evaluate(({key,attempt})=>window.dispatchEvent(new CustomEvent('tubeorder:removed-record',{detail:{accountKey:key,phase:'failed',entries:[attempt]}})),{key,attempt});
+  await expect.poll(async()=>(await history(page)).length).toBe(30);
+  expect((await history(page)).some(e=>e.videoId==='old00000000')).toBe(true);
+  await page.evaluate(({key,attempt})=>window.dispatchEvent(new CustomEvent('tubeorder:removed-record',{detail:{accountKey:key,phase:'done',entries:[attempt]}})),{key,attempt});
+  await expect.poll(async()=>(await history(page))[0].videoId).toBe('new00000001');
+  expect((await history(page)).some(e=>e.videoId==='old00000000')).toBe(false);
+  expect((await history(page)).length).toBe(30);
+});
+
+test('remoção manual registra diretamente quando o evento nativo não chega a document',async()=>{
+  const page=await open('&captureRequest=1');await removeVideo(page);await openHistory(page);
+  await expect(removed(page).getByRole('button',{name:'Restaurar Vídeo long0000001',exact:true})).toBeVisible();
+  expect((await history(page)).length).toBe(1);
+});
+
+test('lista aberta recebe a confirmação sem outra consulta nem aguardar a fila do player',async()=>{
+  const page=await open('&captureRequest=1');
+  await page.evaluate(()=>{const ids=fixtureVideos.map(v=>v.id);document.getElementById('movie_player').getPlaylist=()=>ids;});
+  await page.locator('[data-id="long0000001"] .tubeorder-remove').click();await openHistory(page);
+  await expect(removed(page)).toContainText('Vídeo long0000001');
+  await expect(page.locator('#tubeorder-action-result').filter({hasText:'fila ainda não foi atualizada'})).toHaveCount(0);
+  const requests=await page.evaluate(()=>{let count=0;window.addEventListener('tubeorder:history-context-request',()=>count++);window.historyContextRequests=()=>count;return count;});
+  const key=await accountKey(page);
+  await page.evaluate(key=>window.dispatchEvent(new CustomEvent('tubeorder:removed-record',{detail:{accountKey:key,phase:'done',entries:[{id:crypto.randomUUID(),videoId:'new00000001',title:'Novo removido confirmado'}]}})),key);
+  await expect(removed(page)).toContainText('Novo removido confirmado');
+  expect(await page.evaluate(()=>window.historyContextRequests())).toBe(requests);
 });
 
 test('metadados pendentes de uma aba interrompida só viram removidos após conferir a lista inteira',async()=>{
@@ -157,9 +191,9 @@ test('metadados pendentes de uma aba interrompida só viram removidos após conf
   await expect.poll(async()=>(await history(page)).length).toBe(1);
 });
 
-test('remoção automática confirmada guarda o anterior e Não apagar continua disponível',async()=>{
+for(const capture of [false,true]) test(`remoção automática confirmada guarda o anterior e Não apagar continua disponível${capture?' mesmo com evento interceptado':''}`,async()=>{
   await worker.evaluate(()=>chrome.storage.local.set({removeWatched:true}));
-  const page=await context.newPage();await page.clock.install();await page.goto('https://www.youtube.com/watch?v=old00000001&list=WL&native=1&historycleanup=1');await done(page);
+  const page=await context.newPage();await page.clock.install();await page.goto('https://www.youtube.com/watch?v=old00000001&list=WL&native=1&historycleanup=1'+(capture?'&captureRequest=1':''));await done(page);
   await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));
   await page.evaluate(()=>{cleanupFixture.prime();cleanupFixture.watch([[0,90]],90);cleanupFixture.navigate();});
   await page.clock.fastForward(350);await expect(page.getByRole('button',{name:'Não apagar',exact:true})).toBeVisible();

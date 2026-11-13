@@ -77,7 +77,7 @@ Clique em **Removidos**, depois do status. O botão marcado ganha o roxo claro d
 
 Use **Restaurar** para incluir o vídeo novamente no Assistir mais tarde da conta conectada. A operação precisa da confirmação do servidor antes de tirar o registro do histórico. Falhas mantêm o cartão disponível; um vídeo que já apareça na lista desta aba não é incluído outra vez, e seu registro é preservado. Ao entrar na fila, ele segue a regra de ordenação salva.
 
-São guardados até **500 vídeos recentes por conta**, localmente no navegador. O registro começa nesta versão e contém apenas os metadados necessários para reconhecer e recuperar os links. Inclui remoções manuais e automáticas do TubeOrder e os comandos nativos confirmados que ele consegue observar na aba. Não recupera remoções anteriores ao registro ou realizadas em outra sessão/dispositivo sem a extensão ativa. Não é uma cópia nem um backup do vídeo. Ao atualizar, mantenha a mesma instalação da extensão para conservar o armazenamento local.
+São guardados até **30 vídeos recentes por conta**, localmente no navegador. O registro começa nesta versão e contém apenas os metadados necessários para reconhecer e recuperar os links. Inclui remoções manuais e automáticas do TubeOrder e os comandos nativos confirmados que ele consegue observar na aba. Não recupera remoções anteriores ao registro ou realizadas em outra sessão/dispositivo sem a extensão ativa. Quando entra o 31º removido, sai o mais antigo. A lista aberta atualiza assim que o YouTube confirma a remoção. Não é uma cópia nem um backup do vídeo. Ao atualizar, mantenha a mesma instalação da extensão para conservar o armazenamento local.
 
 ## Salvar recomendados no Assistir mais tarde
 

@@ -149,11 +149,12 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
   function save() {
     localStorage.setItem('fixture-order', JSON.stringify(Array.from(list.querySelectorAll(rowTag), row=>row.dataset.id)));
   }
-  if (batch) document.addEventListener('yt-action',event=>{
+  if (batch) (parameters.has('captureRequest') ? window : document).addEventListener('yt-action',event=>{
     if (event.detail?.actionName !== 'yt-service-request') return;
     const endpoint=event.detail.args?.[1];
     const edit=endpoint?.playlistEditEndpoint;
     if (!edit || edit.playlistId!=='WL') return;
+    if(parameters.has('captureRequest')) event.stopPropagation();
     if(edit.actions?.length===1&&edit.actions[0].action==='ACTION_ADD_VIDEO') {
       window.fixtureSaveCalls.push(structuredClone(edit.actions));
       event.detail.returnValue.push({ajaxPromise:new Promise(resolve=>setTimeout(()=>{
@@ -205,7 +206,7 @@ body{margin:0;padding:80px 32px;font:16px Arial;background:#0f0f0f;color:white}y
       save();
     }
     event.detail.returnValue[0]={ajaxPromise:Promise.resolve({data:{status:'STATUS_SUCCEEDED'}})};
-  });
+  },parameters.has('captureRequest'));
   function openMenu(id) {
     document.querySelector('ytd-menu-popup-renderer')?.remove();
     const popup = document.createElement('ytd-menu-popup-renderer');

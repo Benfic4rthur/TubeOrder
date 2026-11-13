@@ -5,7 +5,7 @@ chrome.runtime.onInstalled.addListener(() => {
 // Serialize read/modify/write across tabs. The worker sleeps when no message is pending.
 let historyQueue = Promise.resolve();
 const HISTORY_PREFIX = "removed:";
-const HISTORY_LIMIT = 500;
+const HISTORY_LIMIT = 30;
 const validId = value => typeof value === "string" && /^[\w-]{11}$/.test(value);
 function historyEntry(value) {
   if (!value || !validId(value.videoId) || typeof value.id !== "string" || !/^[a-f\d-]{36}$/.test(value.id)) return null;
@@ -40,7 +40,10 @@ async function historyMessage(message) {
     entries = entries.filter(item => item.state !== "pending" || !present.has(item.videoId));
     for (const item of entries) if (item.state === "pending") item.state = "removed";
   }
-  entries = entries.sort((a, b) => b.removedAt - a.removedAt).slice(0, HISTORY_LIMIT);
+  let removedCount = 0, pendingCount = 0;
+  // Failed/in-flight removals must not evict a confirmed history entry.
+  entries = entries.sort((a, b) => b.removedAt - a.removedAt).filter(entry =>
+    entry.state === "pending" ? ++pendingCount <= 50 : ++removedCount <= HISTORY_LIMIT);
   if (JSON.stringify(entries) !== JSON.stringify(stored || [])) await chrome.storage.local.set({ [key]: entries });
   return message.type === "TUBEORDER_REMOVED_LIST" ? { ok: true, entries: entries.filter(item => item.state === "removed") } : { ok: true };
 }

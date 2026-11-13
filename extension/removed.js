@@ -1,9 +1,9 @@
 (function () {
   "use strict";
   if (globalThis.TubeOrderRemoved) return;
-  const PREFIX = "removed:", PAGE_SIZE = 50;
+  const PREFIX = "removed:";
   let binding = null, open = false, pane = null, heading = null, summary = null, style = null;
-  let hidden = [], movedNotice = null, account = null, entries = [], shown = PAGE_SIZE, sequence = 0;
+  let hidden = [], movedNotice = null, account = null, entries = [], sequence = 0;
   const requests = new Map(), pending = new Map();
   const notify = (message, error = false) => globalThis.TubeOrderRowActions?.notify(message, error);
   const node = (tag, className, text) => { const element = document.createElement(tag); if (className) element.className = className; if (text) element.textContent = text; return element; };
@@ -49,7 +49,6 @@
       #tubeorder-removed-list button:focus-visible { outline:2px solid #c5aaff;outline-offset:2px; }
       #tubeorder-removed-list button:disabled { opacity:.6;cursor:wait; }
       #tubeorder-removed-list .removed-empty { padding:32px 20px;margin:0;color:var(--yt-spec-text-secondary,#aaa);text-align:center;line-height:1.6; }
-      #tubeorder-removed-list .removed-more { display:block;margin:14px auto; }
     `);
     document.documentElement.append(style);
   }
@@ -82,14 +81,14 @@
     const height = list.clientHeight || Math.min(innerHeight * .65, 500);
     pane = node("div"); pane.id = "tubeorder-removed-list"; pane.setAttribute("role", "list"); pane.setAttribute("aria-label", "Vídeos removidos recentemente"); pane.style.height = height + "px";
     list.before(pane); hide(list); renderer.classList.add("tubeorder-history-open");
-    render(); void load();
+    render("Carregando vídeos removidos…"); void load();
   }
   function render(message) {
     if (!pane?.isConnected) return;
     pane.replaceChildren();
     if (summary) summary.textContent = `${entries.length} removido${entries.length === 1 ? "" : "s"} · neste navegador`;
     if (message || !entries.length) { pane.append(node("p", "removed-empty", message || "Nenhum vídeo removido por aqui ainda. As próximas remoções registradas aparecerão nesta lista.")); return; }
-    for (const entry of entries.slice(0, shown)) {
+    for (const entry of entries) {
       const row = node("div", "removed-row"); row.setAttribute("role", "listitem"); row.dataset.removedId = entry.id;
       row.title = `Removido em ${new Date(entry.removedAt).toLocaleString("pt-BR")}`;
       const url = `https://www.youtube.com/watch?v=${entry.videoId}`;
@@ -104,7 +103,6 @@
       button.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); if (event.isTrusted) void restore(entry, button); });
       byline.append(button); copy.append(title, byline); row.append(thumb, copy); pane.append(row);
     }
-    if (entries.length > shown) { const more = node("button", "removed-more", "Mostrar mais"); more.type = "button"; more.title = "Mostrar mais vídeos removidos"; more.addEventListener("click", () => { shown += PAGE_SIZE; render(); }); pane.append(more); }
   }
   async function load() {
     if (!open || !binding) return;
@@ -150,14 +148,23 @@
     } catch { notify("Vídeo restaurado no YouTube. Não consegui atualizar o histórico local; reabra Removidos.", true); }
   }
   window.addEventListener("tubeorder:restore-result", event => { void finish(event.detail); });
-  chrome.storage.onChanged.addListener((changes, area) => { if (open && area === "local" && account && changes[PREFIX + account]) void load(); });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    const change = account && changes[PREFIX + account];
+    if (!open || area !== "local" || !change) return;
+    // The worker supplies the newly saved value. Render it immediately instead
+    // of identifying the account and reading the same storage a second time.
+    sequence++;
+    const saved = Array.isArray(change.newValue) ? change.newValue : [];
+    entries = saved.filter(entry => entry.state === "removed");
+    render(!entries.length && saved.some(entry => entry.state === "pending") ? "Aguardando o YouTube confirmar a remoção…" : undefined);
+  });
   globalThis.TubeOrderRemoved = Object.freeze({
     isOpen: () => open,
     sync(next) {
       if (binding && (binding.renderer !== next.renderer || binding.list !== next.list || binding.noticeHost !== next.noticeHost)) suspend();
       binding = next; if (open) show();
     },
-    toggle() { if (!binding) return; open = !open; if (open) { shown = PAGE_SIZE; show(); } else { sequence++; suspend(); entries = []; account = null; window.dispatchEvent(new CustomEvent("tubeorder:removed-closed")); } binding?.onChange?.(); },
+    toggle() { if (!binding) return; open = !open; if (open) { show(); } else { sequence++; suspend(); entries = []; account = null; window.dispatchEvent(new CustomEvent("tubeorder:removed-closed")); } binding?.onChange?.(); },
     close() { if (open) { open = false; sequence++; suspend(); entries = []; account = null; binding?.onChange?.(); } },
     suspend,
     destroy() { open = false; sequence++; suspend(); entries = []; account = null; binding = null; style?.remove(); style = null; }

@@ -40,6 +40,14 @@ Executar `npm test` para testes unitários e de navegador. Os testes usam o Chro
 - O preview do aviso usa o mesmo botão Não apagar, mas seu caminho de expiração nunca envia pedidos de remoção, inclusive com reprodução pausada.
 - CSP com `require-trusted-types-for 'script'`: o preview permanece visível e o botão Não apagar funciona com a remoção desligada, sem exceções nem pedidos de remoção.
 
+## Versão 1.7.1 — 13 de novembro de 2026
+
+Passaram **4 testes unitários e 89 testes de navegador** (`npm test`), incluindo **16 casos do histórico de removidos**. O limite agora é de 30 remoções confirmadas por conta: a 31ª substitui a mais antiga. Uma tentativa pendente que falhe não descarta registros anteriores. Remoções manuais e automáticas também são registradas quando o cliente nativo intercepta o evento antes de `document`, sem duplicatas.
+
+A lista aberta recebe o novo valor do armazenamento diretamente, sem identificar a conta e consultar novamente o mesmo conteúdo. A confirmação do servidor grava o histórico antes da confirmação adicional da fila do player. O carregamento inicial mostra “Carregando vídeos removidos…” em vez de anunciar uma lista vazia antes da resposta. Não foram acrescentadas consultas periódicas.
+
+Durante a investigação no Edge, uma remoção automática normal iniciada pelo usuário foi registrada no histórico da versão 1.7.0; o armazenamento confirmou um registro concluído. Não foram feitas exclusões adicionais na conta para testar. O ZIP da 1.7.1 foi conferido contra os arquivos instaláveis, o manifesto e suas referências.
+
 ## Versão 1.7.0 — 13 de novembro de 2026
 
 Passaram **4 testes unitários e 85 testes de navegador**. Os **12 testes novos** cobrem a barra mínima, tooltips, cores do botão marcado, alternância no mesmo painel sem editar a fila ou comandar a reprodução, metadados completos, persistência após recarregar, restauração pelo `ACTION_ADD_VIDEO` nativo, falhas, prevenção de duplicatas, item retido apenas no player, playlist vazia, contas separadas, navegação SPA, concorrência entre abas, limite de 500 registros, recuperação de uma aba interrompida e registro da remoção automática. Os testes usam a extensão real com transporte do YouTube simulado; não excluem vídeos de contas reais.

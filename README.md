@@ -74,7 +74,7 @@ Clique em **Removidos** ao lado do status da organização. O botão fica marcad
 
 **Restaurar** devolve o vídeo ao Assistir mais tarde real da conta conectada. O registro só sai do histórico após a confirmação da inclusão pelo YouTube. Se o vídeo já aparecer na lista desta aba, não há outro pedido de inclusão e o registro é mantido para preservar a referência.
 
-O histórico guarda **até 500 vídeos recentes por conta**, neste navegador, a partir desta versão. Registra as remoções manuais e automáticas do TubeOrder e os comandos nativos de remoção confirmados que a extensão consegue acompanhar na aba do Assistir mais tarde. Remoções antigas ou feitas em outras sessões/dispositivos sem a extensão ativa não podem ser recuperadas. O histórico não baixa nem guarda cópias dos vídeos.
+O histórico guarda **até 30 vídeos recentes por conta**, neste navegador, a partir desta versão. Registra as remoções manuais e automáticas do TubeOrder e os comandos nativos de remoção confirmados que a extensão consegue acompanhar na aba do Assistir mais tarde. Remoções antigas ou feitas em outras sessões/dispositivos sem a extensão ativa não podem ser recuperadas. Ao entrar o 31º removido, sai o mais antigo. A lista aberta atualiza assim que o YouTube confirma a remoção. O histórico não baixa nem guarda cópias dos vídeos.
 
 ## Leveza e privacidade
 
@@ -83,7 +83,7 @@ O histórico guarda **até 500 vídeos recentes por conta**, neste navegador, a 
 - As preferências e o histórico de removidos ficam no navegador. O histórico contém identificação do vídeo, título, canal, duração, endereço da miniatura e data, separado por conta. Não guarda credenciais. As alterações na playlist são gravadas pelo próprio cliente do YouTube, com a sessão já conectada.
 - Após a ordenação, os dados temporários são liberados. Na tela de reprodução, observadores restritos à fila e aos recomendados detectam entradas de vídeos e atualizações relevantes dos cards. Não há verificações periódicas; animações de miniaturas e mudanças fora desses blocos são ignoradas. Com a remoção opcional ligada, o acompanhamento usa eventos nativos do vídeo ativo.
 - O TubeOrder não baixa vídeos nem guarda cópias. Mudanças na interface do YouTube podem exigir atualizações da extensão.
-- A lista de removidos é carregada somente quando aberta, mostra 50 cartões por vez e usa imagens sob demanda. Ao fechar, libera os dados da visualização. A gravação usa o service worker apenas durante os pedidos, sem consultas periódicas.
+- A lista de removidos é carregada somente quando aberta, guarda os 30 mais recentes e usa imagens sob demanda. Ao fechar, libera os dados da visualização. A gravação usa o service worker apenas durante os pedidos, sem consultas periódicas.
 
 Consulte o [manifesto](extension/manifest.json), o [código da extensão](extension/) e o [guia de funcionamento](docs/guia.md).
 
