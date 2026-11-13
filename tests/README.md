@@ -40,6 +40,14 @@ Executar `npm test` para testes unitários e de navegador. Os testes usam o Chro
 - O preview do aviso usa o mesmo botão Não apagar, mas seu caminho de expiração nunca envia pedidos de remoção, inclusive com reprodução pausada.
 - CSP com `require-trusted-types-for 'script'`: o preview permanece visível e o botão Não apagar funciona com a remoção desligada, sem exceções nem pedidos de remoção.
 
+## Versão 1.8.0 — 13 de novembro de 2026
+
+Passaram **4 testes unitários e 101 testes de navegador** (`npm test`), incluindo **21 casos de inclusão**. O botão + Mais tarde funciona na home, buscas, canais, inscrições, outras playlists e recomendados de vídeos abertos fora de WL. Os casos confirmam o comando nativo ACTION_ADD_VIDEO para WL, persistência após recarregar, confirmação do servidor e preservação dos filtros de já salvo, assistido e progresso parcial.
+
+A fila de outra playlist não é tratada como o Assistir mais tarde nem reorganizada. Formatos modernos, grades e cartões legados recebem um único botão junto ao canal. Foram verificadas navegação entre telas, troca de conta, novos cartões, login que termina depois da inicialização, ausência de consultas periódicas e notificações preservadas quando os controles exclusivos de WL são desmontados.
+
+No Edge, a extensão exibiu a versão 1.8.0. Os botões apareceram na home real, enquanto cartões com progresso ficaram sem eles. A inclusão com confirmação e persistência foi testada com transporte do YouTube simulado; não foram removidos nem acrescentados vídeos à conta para esse teste. O usuário também confirmou que viu o resultado no Edge. Manifesto, suas 20 referências, sintaxe JavaScript e ZIP foram conferidos.
+
 ## Versão 1.7.1 — 13 de novembro de 2026
 
 Passaram **4 testes unitários e 89 testes de navegador** (`npm test`), incluindo **16 casos do histórico de removidos**. O limite agora é de 30 remoções confirmadas por conta: a 31ª substitui a mais antiga. Uma tentativa pendente que falhe não descarta registros anteriores. Remoções manuais e automáticas também são registradas quando o cliente nativo intercepta o evento antes de `document`, sem duplicatas.

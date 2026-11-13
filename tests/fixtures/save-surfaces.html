@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>YouTube — superfícies de inclusão</title>
+<style>body{background:#0f0f0f;color:white;font:14px Arial;margin:80px 32px}ytd-browse,ytd-search,ytd-playlist-video-list-renderer,yt-lockup-view-model,ytd-grid-video-renderer,ytd-rich-grid-media,ytd-video-renderer,ytd-playlist-video-renderer{display:block}a{color:white}article{margin:14px;padding:12px;border:1px solid #444}.ytContentMetadataViewModelMetadataRow{display:flex;gap:6px}video{width:240px;height:135px} [hidden]{display:none!important}</style></head><body>
+<ytd-masthead><button id="avatar-btn">Conta</button></ytd-masthead><video></video><div id="movie_player"></div>
+<script>
+(() => {
+  const params=new URLSearchParams(location.search);
+  let identity='surface-account';
+  window.ytcfg={get:key=>key==='DATASYNC_ID'?identity:undefined};
+  const avatar=document.querySelector('#avatar-btn');
+  if(params.has('signedout')||params.has('lateAvatar'))avatar.remove();
+  window.fixtureSignIn=()=>document.querySelector('ytd-masthead').append(avatar);
+  window.fixtureSaveCalls=[];window.fixtureRecommendationScans=0;
+  window.addEventListener('tubeorder:recommendations-scan',()=>fixtureRecommendationScans++);
+  document.getElementById('movie_player').getPlaylist=()=>['foreign0001','reco0000001'];
+  const stored=()=>new Set(JSON.parse(localStorage.getItem('surface-saved:'+identity)||'[]'));
+  let root;
+  window.fixtureRecommend=(id='reco0000001',options={})=>{
+    const card=document.createElement(options.tag||'yt-lockup-view-model');card.dataset.recommendation=id;
+    card.innerHTML=`<article><a href="/watch?v=${id}">Vídeo ${id}</a><div class="ytContentMetadataViewModelMetadataRow"><a href="/@exemplo">Canal exemplo</a>${options.block?'<button class="fixture-block">Bloquear</button>':''}</div></article>`;
+    const saved=options.saved||stored().has(id);
+    const endpoint={commandMetadata:{webCommandMetadata:{sendPost:true,apiUrl:'/youtubei/v1/browse/edit_playlist'}},playlistEditEndpoint:{playlistId:options.wrongList?'LL':'WL',actions:saved?[{action:'ACTION_REMOVE_VIDEO',setVideoId:'set-'+id}]:[{action:'ACTION_ADD_VIDEO',addedVideoId:id}]}};
+    const data={videoId:id,menu:{menuRenderer:{items:[{menuServiceItemRenderer:{serviceEndpoint:endpoint}}]}},thumbnailOverlays:options.watched?[{thumbnailOverlayResumePlaybackRenderer:{percentDurationWatched:options.watched}}]:[]};
+    if(options.tag&&options.tag!=='yt-lockup-view-model')card.data=data;
+    else card.componentProps={data:()=>({contentId:id,contentType:options.playlist?'LOCKUP_CONTENT_TYPE_PLAYLIST':'LOCKUP_CONTENT_TYPE_VIDEO',metadata:data})};
+    if(options.domWatched){const bar=document.createElement('div');bar.className='ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment';bar.style.width='30%';card.append(bar);}
+    if(options.ad){const ad=document.createElement('ytd-ad-slot-renderer');ad.append(card);root.append(ad);}else root.append(card);
+    return card;
+  };
+  function populate(){
+    const path=location.pathname;
+    root=document.createElement(path==='/watch'?'div':path==='/results'?'ytd-search':path==='/playlist'?'ytd-playlist-video-list-renderer':'ytd-browse');
+    if(path==='/watch')root.id='related';document.body.append(root);
+    fixtureRecommend('reco0000001',{block:true});fixtureRecommend('saved000001',{saved:true});fixtureRecommend('partial0001',{watched:10});fixtureRecommend('watched0001',{watched:100});fixtureRecommend('watched0002',{domWatched:true});fixtureRecommend('badcmd00001',{wrongList:true});fixtureRecommend('playlist001',{playlist:true});fixtureRecommend('ad000000001',{ad:true});
+    if(params.has('foreign')){
+      const panel=document.createElement('ytd-playlist-panel-renderer');panel.data={playlistId:'LL'};
+      const row=document.createElement('ytd-playlist-panel-video-renderer');row.data={videoId:'foreign0001'};panel.append(row);document.body.append(panel);
+      fixtureRecommend('foreign0001');
+    }
+  }
+  window.fixtureNavigate=path=>{
+    document.dispatchEvent(new Event('yt-navigate-start'));root.hidden=true;
+    history.pushState({},'',path);populate();document.dispatchEvent(new Event('yt-navigate-finish'));
+  };
+  window.fixtureChangeAccount=()=>{identity='another-surface-account';root.remove();populate();document.dispatchEvent(new Event('yt-page-data-updated'));};
+  document.addEventListener('yt-action',event=>{
+    if(event.detail?.actionName!=='yt-service-request')return;
+    const edit=event.detail.args?.[1]?.playlistEditEndpoint;
+    if(edit?.playlistId!=='WL'||edit.actions?.length!==1||edit.actions[0].action!=='ACTION_ADD_VIDEO')throw new Error('Unexpected playlist edit');
+    fixtureSaveCalls.push(structuredClone(edit));
+    event.detail.returnValue.push({ajaxPromise:new Promise(resolve=>setTimeout(()=>{
+      if(params.has('saveerror')){resolve({data:{status:'STATUS_FAILED'}});return;}
+      const ids=stored();ids.add(edit.actions[0].addedVideoId);localStorage.setItem('surface-saved:'+identity,JSON.stringify([...ids]));
+      resolve({data:{status:'STATUS_SUCCEEDED'}});
+    },60))});
+  });
+  populate();
+})();
+</script></body></html>

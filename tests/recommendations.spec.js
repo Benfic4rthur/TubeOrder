@@ -2,6 +2,7 @@ const {test,expect,chromium}=require('@playwright/test');
 const fs=require('node:fs');
 const path=require('node:path');
 const fixture=fs.readFileSync(path.join(__dirname,'fixtures/youtube.html'),'utf8');
+const surfaceFixture=fs.readFileSync(path.join(__dirname,'fixtures/save-surfaces.html'),'utf8');
 let context,worker;
 const base='https://www.youtube.com/watch?v=short000001&list=WL&watchpanel=1&batch=1&recommendations=1';
 
@@ -9,7 +10,7 @@ test.beforeAll(async()=>{
   const extension=path.resolve(__dirname,'../extension');
   context=await chromium.launchPersistentContext('',{channel:'chromium',headless:true,args:[`--disable-extensions-except=${extension}`,`--load-extension=${extension}`]});
   [worker]=context.serviceWorkers();if(!worker)worker=await context.waitForEvent('serviceworker');
-  await context.route('https://www.youtube.com/**',route=>route.fulfill({contentType:'text/html',body:fixture}));
+  await context.route('https://www.youtube.com/**',route=>route.fulfill({contentType:'text/html',body:new URL(route.request().url()).searchParams.has('saveSurface')?surfaceFixture:fixture}));
 });
 test.afterAll(async()=>{await context?.close();});
 test.beforeEach(async()=>{
@@ -119,14 +120,14 @@ test('fica ociosa e ignora animações de miniaturas e alterações fora dos rec
   await page.close();
 });
 
-test('não atua fora do Assistir mais tarde, sem login e desmonta ao sair por SPA',async()=>{
-  for(const url of [base.replace('&list=WL','&list=LL'),base+'&signedout=1']) {
+test('sem login não inclui vídeos e sair para uma tela sem vídeos desmonta por SPA',async()=>{
+  for(const url of [base+'&signedout=1']) {
     const page=await context.newPage();await page.goto(url);await page.waitForTimeout(350);
     await expect(page.locator('.tubeorder-save')).toHaveCount(0);
     expect(await page.evaluate(()=>fixtureRecommendationScans)).toBe(0);await page.close();
   }
   const page=await open();
-  await page.evaluate(()=>{document.dispatchEvent(new Event('yt-navigate-start'));history.pushState({},'','/watch?v=short000001');document.dispatchEvent(new Event('yt-navigate-finish'));});
+  await page.evaluate(()=>{document.dispatchEvent(new Event('yt-navigate-start'));history.pushState({},'','/account');document.dispatchEvent(new Event('yt-navigate-finish'));});
   await expect(page.locator('.tubeorder-save')).toHaveCount(0);
   await expect(page.locator('.tubeorder-save-row')).toHaveCount(0);
   const scans=await page.evaluate(()=>fixtureRecommendationScans);
@@ -134,4 +135,78 @@ test('não atua fora do Assistir mais tarde, sem login e desmonta ao sair por SP
   await page.waitForTimeout(350);
   expect(await page.evaluate(()=>fixtureRecommendationScans)).toBe(scans);
   await page.close();
+});
+
+for(const surface of [
+  {name:'vídeo aberto fora da lista',path:'/watch?v=current0001'},
+  {name:'página inicial',path:'/'},
+  {name:'busca',path:'/results?search_query=exemplo'},
+  {name:'canal',path:'/@exemplo/videos'},
+  {name:'inscrições',path:'/feed/subscriptions'},
+  {name:'outra playlist',path:'/playlist?list=LL'},
+]) test(`incluir de verdade na ${surface.name}, preservando os filtros e sem ordenar outra lista`,async()=>{
+  const page=await context.newPage(),url='https://www.youtube.com'+surface.path+(surface.path.includes('?')?'&':'?')+'saveSurface=1';
+  await page.goto(url);await expect(button(page,'reco0000001')).toBeVisible();
+  await expect(page.locator('.tubeorder-save')).toHaveCount(1);
+  for(const id of ['saved000001','partial0001','watched0001','watched0002','badcmd00001','playlist001','ad000000001'])await expect(button(page,id)).toHaveCount(0);
+  await button(page,'reco0000001').click();await expect(page.locator('#tubeorder-action-result')).toContainText('Vídeo salvo');
+  expect(await page.evaluate(()=>fixtureSaveCalls)).toEqual([{playlistId:'WL',actions:[{action:'ACTION_ADD_VIDEO',addedVideoId:'reco0000001'}]}]);
+  await expect(button(page,'reco0000001')).toHaveCount(0);await expect(page.locator('#tubeorder-lock')).toHaveCount(0);await expect(page.locator('#tubeorder-notice')).toHaveCount(0);
+  expect(page.url()).toBe(url);await page.reload();await expect(button(page,'reco0000001')).toHaveCount(0);
+  await page.close();
+});
+
+test('a fila de outra playlist não é confundida com vídeos já salvos no Assistir mais tarde',async()=>{
+  const page=await context.newPage();await page.goto('https://www.youtube.com/watch?v=current0001&list=LL&saveSurface=1&foreign=1');
+  await expect(button(page,'foreign0001')).toBeVisible();await expect(button(page,'reco0000001')).toBeVisible();
+  await button(page,'foreign0001').click();await expect(page.locator('#tubeorder-action-result')).toContainText('Vídeo salvo');
+  expect(await page.locator('ytd-playlist-panel-video-renderer').evaluateAll(rows=>rows.map(r=>r.data.videoId))).toEqual(['foreign0001']);
+  expect((await page.evaluate(()=>fixtureSaveCalls))[0].playlistId).toBe('WL');await page.close();
+});
+
+test('formatos de grade, canal e playlist recebem um único botão junto ao canal',async()=>{
+  const page=await context.newPage();await page.goto('https://www.youtube.com/?saveSurface=1');
+  for(const [i,tag]of ['ytd-grid-video-renderer','ytd-rich-grid-media','ytd-video-renderer','ytd-playlist-video-renderer'].entries()){
+    const id='grid'+String(i).padStart(7,'0');await page.evaluate(({id,tag})=>fixtureRecommend(id,{tag}),{id,tag});await expect(button(page,id)).toBeVisible();
+    await expect(card(page,id).locator('.ytContentMetadataViewModelMetadataRow .tubeorder-save')).toHaveCount(1);
+  }
+  await page.evaluate(()=>{const row=document.querySelector('[data-recommendation="reco0000001"]');const wrapper=document.createElement('ytd-rich-grid-media');row.replaceWith(wrapper);wrapper.append(row);document.dispatchEvent(new Event('yt-page-data-updated'));});
+  await expect(button(page,'reco0000001')).toHaveCount(1);await page.close();
+});
+
+test('trocas entre home, busca e vídeo preservam os filtros e a inclusão não depende de WL',async()=>{
+  const page=await context.newPage();await page.goto('https://www.youtube.com/?saveSurface=1');await expect(button(page,'reco0000001')).toBeVisible();
+  await button(page,'reco0000001').click();await expect(page.locator('#tubeorder-action-result')).toContainText('Vídeo salvo');
+  for(const path of ['/results?saveSurface=1&search_query=teste','/watch?v=current0001&saveSurface=1']){
+    await page.evaluate(path=>fixtureNavigate(path),path);await page.evaluate(()=>fixtureRecommend('fresh000001'));
+    await expect(button(page,'fresh000001')).toBeVisible();await expect(button(page,'reco0000001')).toHaveCount(0);
+  }
+  await page.evaluate(()=>fixtureChangeAccount());await expect(button(page,'reco0000001')).toBeVisible();await page.close();
+});
+
+test('no histórico, sem login e em configurações não monta botões; animações na home não causam consultas',async()=>{
+  for(const url of ['https://www.youtube.com/feed/history?saveSurface=1','https://www.youtube.com/?saveSurface=1&signedout=1','https://www.youtube.com/account?saveSurface=1']){
+    const page=await context.newPage();await page.goto(url);await page.waitForTimeout(200);await expect(page.locator('.tubeorder-save')).toHaveCount(0);expect(await page.evaluate(()=>fixtureRecommendationScans)).toBe(0);await page.close();
+  }
+  const page=await context.newPage();await page.goto('https://www.youtube.com/?saveSurface=1');await expect(button(page,'reco0000001')).toBeVisible();
+  const scans=await page.evaluate(()=>fixtureRecommendationScans);
+  await page.evaluate(()=>{const img=document.createElement('div');document.querySelector('[data-recommendation="reco0000001"]').append(img);for(let i=0;i<30;i++)img.style.transform=`translateX(${i}px)`;});
+  await page.waitForTimeout(350);expect(await page.evaluate(()=>fixtureRecommendationScans)).toBe(scans);await page.close();
+});
+
+test('login que termina depois da extensão iniciar ativa o botão sem recarregar nem navegar',async()=>{
+  const page=await context.newPage();await page.goto('https://www.youtube.com/?saveSurface=1&lateAvatar=1');
+  await page.bringToFront();const id=await worker.evaluate(async()=>(await chrome.tabs.query({active:true,currentWindow:true}))[0].id);
+  await expect.poll(async()=>{try{return !!(await worker.evaluate(id=>chrome.tabs.sendMessage(id,{type:'TUBEORDER_STATUS'}),id));}catch{return false;}}).toBe(true);
+  await expect(button(page,'reco0000001')).toHaveCount(0);expect(await page.evaluate(()=>fixtureRecommendationScans)).toBe(0);
+  await page.evaluate(()=>fixtureSignIn());await expect(button(page,'reco0000001')).toBeVisible();
+  await page.close();
+});
+
+test('atualização da página fora de WL preserva o aviso de inclusão confirmada',async()=>{
+  const page=await context.newPage();await page.goto('https://www.youtube.com/playlist?list=LL&saveSurface=1');
+  await button(page,'reco0000001').click();await expect(page.locator('#tubeorder-action-result')).toContainText('Vídeo salvo');
+  await page.evaluate(()=>document.dispatchEvent(new Event('yt-navigate-finish')));
+  await page.waitForTimeout(250);await expect(page.locator('#tubeorder-action-result')).toContainText('Vídeo salvo');
+  expect(await page.evaluate(()=>fixtureSaveCalls.length)).toBe(1);await page.close();
 });

@@ -2,16 +2,13 @@
   "use strict";
   if (globalThis.__tubeOrderRecommendationsLoaded) return;
   globalThis.__tubeOrderRecommendationsLoaded = true;
-  const CARDS = "yt-lockup-view-model, ytd-compact-video-renderer, ytd-video-renderer";
+  const surface = globalThis.TubeOrderSaveContext, CARDS = surface.CARDS;
   const mounted = new Map(), pending = new Map();
   let root = null, panel = null, observer = null, panelObserver = null, discovery = null;
-  let timer = null, discoveryTimer = null, scanId = null, style = null, navigating = false;
+  let timer = null, discoveryTimer = null, discoveryTarget = null, scanId = null, style = null, navigating = false;
 
   function available() {
-    const url = new URL(location.href);
-    const avatar = document.querySelector("ytd-masthead #avatar-btn, #masthead #avatar-btn, ytd-masthead button#avatar");
-    return !navigating && url.pathname.replace(/\/$/, "") === "/watch" && url.searchParams.get("list") === "WL" &&
-      Boolean(avatar && !avatar.closest("[hidden]"));
+    return !navigating && surface.available();
   }
   function ensureStyle() {
     if (style?.isConnected) return;
@@ -26,7 +23,14 @@
     document.documentElement.appendChild(style);
   }
   function unmount(entry) { entry.button.remove(); entry.host.classList.remove("tubeorder-save-row"); }
-  function stopDiscovery() { discovery?.disconnect(); discovery = null; clearTimeout(discoveryTimer); discoveryTimer = null; }
+  function stopDiscovery() { discovery?.disconnect(); discovery = discoveryTarget = null; clearTimeout(discoveryTimer); discoveryTimer = null; }
+  function discover(target) {
+    if (discovery && discoveryTarget === target) return;
+    stopDiscovery(); discoveryTarget = target;
+    discovery = new MutationObserver(schedule);
+    discovery.observe(target, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
+    discoveryTimer = setTimeout(stopDiscovery, 15000);
+  }
   function stop() {
     clearTimeout(timer); timer = null; scanId = null;
     observer?.disconnect(); panelObserver?.disconnect(); observer = panelObserver = null;
@@ -44,14 +48,17 @@
         node.matches("ytd-thumbnail-overlay-resume-playback-renderer, .ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment")));
   }
   function reconcile() {
-    if (!available()) { stop(); return; }
-    const next = document.querySelector("#related") || document.querySelector("ytd-watch-next-secondary-results-renderer");
+    if (!available()) {
+      if (navigating || !surface.supported()) { stop(); return; }
+      if (root || observer || mounted.size) stop();
+      // YouTube may finish signing in after document_idle without another
+      // navigation event. Wait briefly on the masthead, then disconnect.
+      discover(document.querySelector("ytd-masthead") || document.body || document.documentElement);
+      return;
+    }
+    const next = surface.root();
     if (!next) {
-      if (!discovery) {
-        discovery = new MutationObserver(schedule);
-        discovery.observe(document.body || document.documentElement, { childList: true, subtree: true });
-        discoveryTimer = setTimeout(stopDiscovery, 15000);
-      }
+      discover(document.body || document.documentElement);
       return;
     }
     stopDiscovery(); ensureStyle();
@@ -118,7 +125,7 @@
   });
   document.addEventListener("yt-navigate-start", () => { navigating = true; stop(); });
   document.addEventListener("yt-navigate-finish", () => { navigating = false; reconcile(); });
-  document.addEventListener("yt-page-data-updated", () => { if (available()) schedule(); });
+  document.addEventListener("yt-page-data-updated", () => { if (surface.supported()) schedule(); });
   window.addEventListener("popstate", schedule);
   window.addEventListener("tubeorder:sort-unlocked", schedule);
   window.addEventListener("tubeorder:sidebar-ready", schedule);

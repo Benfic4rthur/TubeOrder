@@ -64,9 +64,9 @@ Clique em **Não apagar** para cancelar **somente aquela tentativa**. Se reassis
 
 ## Salvar um recomendado com um clique
 
-Ao assistir a um vídeo pelo Assistir mais tarde, use **+ Mais tarde** nos recomendados abaixo da fila. O botão aparece junto ao nome do canal e salva na playlist real da sua conta. O TubeOrder só anuncia sucesso após a confirmação do YouTube. A entrada do vídeo na fila aciona a organização com a última regra escolhida.
+Use **+ Mais tarde** junto ao nome do canal nos cartões da página inicial, buscas, canais, inscrições, outras playlists e recomendados de vídeos, inclusive abertos fora do Assistir mais tarde. O botão salva na playlist real da conta conectada, e o TubeOrder só anuncia sucesso após a confirmação do YouTube. Se você estiver no Assistir mais tarde, a entrada do vídeo na fila aciona a organização com a última regra escolhida. As outras playlists mantêm sua ordem.
 
-Vídeos já presentes na fila ou identificados pelo YouTube como salvos ficam sem o botão. A extensão também oculta o botão quando encontra marcação de assistido ou progresso de reprodução, inclusive parcial. **O YouTube nem sempre informa o histórico completo nos recomendados:** se ele omitir essas marcações, um vídeo assistido anteriormente ainda poderá exibir o botão. O TubeOrder não consulta nem armazena seu histórico completo.
+Vídeos identificados como já salvos no Assistir mais tarde ficam sem o botão. A fila de outra playlist não é confundida com o Assistir mais tarde. A extensão também oculta o botão quando encontra marcação de assistido ou progresso de reprodução, inclusive parcial. **O YouTube nem sempre informa o histórico completo nos recomendados:** se ele omitir essas marcações, um vídeo assistido anteriormente ainda poderá exibir o botão. O TubeOrder não consulta nem armazena seu histórico completo.
 
 ## Removidos: recupere uma exclusão acidental
 
@@ -81,7 +81,7 @@ O histórico guarda **até 30 vídeos recentes por conta**, neste navegador, a p
 - O pacote instalado usa JavaScript, CSS e ícones locais, sem dependências de execução, analytics ou servidor próprio.
 - A única permissão declarada é `storage`. Os scripts são carregados em `www.youtube.com`; as ações da playlist ficam restritas ao Assistir mais tarde.
 - As preferências e o histórico de removidos ficam no navegador. O histórico contém identificação do vídeo, título, canal, duração, endereço da miniatura e data, separado por conta. Não guarda credenciais. As alterações na playlist são gravadas pelo próprio cliente do YouTube, com a sessão já conectada.
-- Após a ordenação, os dados temporários são liberados. Na tela de reprodução, observadores restritos à fila e aos recomendados detectam entradas de vídeos e atualizações relevantes dos cards. Não há verificações periódicas; animações de miniaturas e mudanças fora desses blocos são ignoradas. Com a remoção opcional ligada, o acompanhamento usa eventos nativos do vídeo ativo.
+- Após a ordenação, os dados temporários são liberados. Observadores restritos à fila e ao bloco de vídeos da tela ativa detectam entradas de vídeos e atualizações relevantes dos cards. Não há verificações periódicas; animações de miniaturas e mudanças fora desses blocos são ignoradas. Com a remoção opcional ligada, o acompanhamento usa eventos nativos do vídeo ativo.
 - O TubeOrder não baixa vídeos nem guarda cópias. Mudanças na interface do YouTube podem exigir atualizações da extensão.
 - A lista de removidos é carregada somente quando aberta, guarda os 30 mais recentes e usa imagens sob demanda. Ao fechar, libera os dados da visualização. A gravação usa o service worker apenas durante os pedidos, sem consultas periódicas.
 

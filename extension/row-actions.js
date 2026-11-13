@@ -23,9 +23,12 @@
     document.documentElement.appendChild(style);
   }
 
-  function clearToast() { clearTimeout(toastTimer); toast?.remove(); toast = toastTimer = null; }
+  function clearToast() {
+    clearTimeout(toastTimer); toast?.remove(); toast = toastTimer = null;
+    if (!mounted.size && !pending.size) { style?.remove(); style = null; }
+  }
   function notify(message, error = false) {
-    ensureStyle(); clearToast();
+    clearToast(); ensureStyle();
     toast = document.createElement("aside"); toast.id = "tubeorder-action-result";
     toast.setAttribute("role", "status"); toast.setAttribute("aria-live", "polite");
     const mark = document.createElement("span"); mark.textContent = error ? "!" : "✓"; mark.style.color = error ? "#ffaaa5" : "#83df9d";
@@ -87,7 +90,10 @@
     for (const entry of mounted.values()) { entry.button.remove(); entry.host?.classList.remove("tubeorder-row-byline"); }
     mounted.clear();
     for (const item of pending.values()) clearTimeout(item.timer);
-    pending.clear(); clearToast(); style?.remove(); style = null;
+    pending.clear();
+    // Save notifications are also used outside WL. Dismantling the WL row
+    // controls must not erase an unrelated, still-visible confirmation.
+    if (!toast) { style?.remove(); style = null; }
   }
   window.addEventListener("tubeorder:manual-remove-result", event => {
     const result = event.detail;
