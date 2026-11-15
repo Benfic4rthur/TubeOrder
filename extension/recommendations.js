@@ -3,9 +3,10 @@
   if (globalThis.__tubeOrderRecommendationsLoaded) return;
   globalThis.__tubeOrderRecommendationsLoaded = true;
   const surface = globalThis.TubeOrderSaveContext, CARDS = surface.CARDS;
+  const READY_NODES = "ytd-masthead, #avatar-btn, button#avatar, #related, ytd-watch-next-secondary-results-renderer, ytd-search, ytd-playlist-video-list-renderer, ytd-browse";
   const mounted = new Map(), pending = new Map();
-  let root = null, panel = null, observer = null, panelObserver = null, discovery = null;
-  let timer = null, discoveryTimer = null, discoveryTarget = null, scanId = null, style = null, navigating = false;
+  let root = null, panel = null, observer = null, panelObserver = null, discovery = null, mountObserver = null;
+  let timer = null, discoveryTarget = null, scanId = null, style = null, navigating = false;
 
   function available() {
     return !navigating && surface.available();
@@ -23,24 +24,29 @@
     document.documentElement.appendChild(style);
   }
   function unmount(entry) { entry.button.remove(); entry.host.classList.remove("tubeorder-save-row"); }
-  function stopDiscovery() { discovery?.disconnect(); discovery = discoveryTarget = null; clearTimeout(discoveryTimer); discoveryTimer = null; }
+  function stopDiscovery() { discovery?.disconnect(); discovery = discoveryTarget = null; }
+  function readinessChange(record) {
+    const matches = node => node.nodeType === Node.ELEMENT_NODE && (node.matches(READY_NODES) || node.querySelector(READY_NODES));
+    return record.type === "attributes" ? matches(record.target) : [...record.addedNodes, ...record.removedNodes].some(matches);
+  }
   function discover(target) {
     if (discovery && discoveryTarget === target) return;
     stopDiscovery(); discoveryTarget = target;
-    discovery = new MutationObserver(schedule);
+    // Background tabs may take longer than 15 seconds to finish YouTube's
+    // shell. React only to readiness nodes, without a deadline or polling.
+    discovery = new MutationObserver(records => { if (records.some(readinessChange)) schedule(); });
     discovery.observe(target, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
-    discoveryTimer = setTimeout(stopDiscovery, 15000);
   }
   function stop() {
     clearTimeout(timer); timer = null; scanId = null;
-    observer?.disconnect(); panelObserver?.disconnect(); observer = panelObserver = null;
+    observer?.disconnect(); panelObserver?.disconnect(); mountObserver?.disconnect(); observer = panelObserver = mountObserver = null;
     root = panel = null; stopDiscovery();
     for (const entry of mounted.values()) unmount(entry);
     mounted.clear(); style?.remove(); style = null;
   }
   function schedule() { if (timer === null) timer = setTimeout(() => { timer = null; reconcile(); }, 100); }
   function relevant(record) {
-    if (record.type === "attributes") return Boolean(record.target.closest(CARDS)) &&
+    if (record.type === "attributes") return (record.target === root && record.attributeName === "hidden") || Boolean(record.target.closest(CARDS)) &&
       (record.attributeName === "href" || record.attributeName === "hidden" ||
         record.target.matches("ytd-thumbnail-overlay-resume-playback-renderer #progress, .ytThumbnailOverlayProgressBarHostWatchedProgressBarSegment, [role='progressbar']"));
     return [...record.addedNodes, ...record.removedNodes].some(node => node.nodeType === Node.ELEMENT_NODE &&
@@ -51,9 +57,8 @@
     if (!available()) {
       if (navigating || !surface.supported()) { stop(); return; }
       if (root || observer || mounted.size) stop();
-      // YouTube may finish signing in after document_idle without another
-      // navigation event. Wait briefly on the masthead, then disconnect.
-      discover(document.querySelector("ytd-masthead") || document.body || document.documentElement);
+      // The masthead itself can also be replaced while sign-in finishes.
+      discover(document.querySelector("ytd-masthead")?.parentElement || document.body || document.documentElement);
       return;
     }
     const next = surface.root();
@@ -63,9 +68,12 @@
     }
     stopDiscovery(); ensureStyle();
     if (next !== root) {
-      observer?.disconnect(); root = next;
+      observer?.disconnect(); mountObserver?.disconnect(); root = next;
       observer = new MutationObserver(records => { if (records.some(relevant)) schedule(); });
       observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["href", "hidden", "style", "aria-valuenow"] });
+      // A renderer replacement happens outside the old renderer's observer.
+      mountObserver = new MutationObserver(() => { if (!root?.isConnected || surface.root() !== root) schedule(); });
+      if (root.parentElement) mountObserver.observe(root.parentElement, { childList: true });
     }
     const nextPanel = document.querySelector("ytd-playlist-panel-renderer:not([hidden]) #items, ytd-playlist-panel-renderer:not([hidden]) #contents");
     if (nextPanel !== panel) {
@@ -129,5 +137,12 @@
   window.addEventListener("popstate", schedule);
   window.addEventListener("tubeorder:sort-unlocked", schedule);
   window.addEventListener("tubeorder:sidebar-ready", schedule);
+  function resume(event) {
+    if (document.visibilityState === "hidden" || navigating || !surface.supported()) return;
+    if (!root?.isConnected || !observer || surface.root() !== root || event.type === "pageshow" && event.persisted) schedule();
+  }
+  document.addEventListener("visibilitychange", resume);
+  window.addEventListener("pageshow", resume);
+  window.addEventListener("focus", resume);
   reconcile();
 })();

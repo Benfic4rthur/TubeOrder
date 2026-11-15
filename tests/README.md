@@ -40,6 +40,14 @@ Executar `npm test` para testes unitários e de navegador. Os testes usam o Chro
 - O preview do aviso usa o mesmo botão Não apagar, mas seu caminho de expiração nunca envia pedidos de remoção, inclusive com reprodução pausada.
 - CSP com `require-trusted-types-for 'script'`: o preview permanece visível e o botão Não apagar funciona com a remoção desligada, sem exceções nem pedidos de remoção.
 
+## Versão 1.8.1 — 15 de novembro de 2026
+
+Passaram **4 testes unitários e 105 testes de navegador** (`npm test`), incluindo **25 casos de inclusão**. Quatro regressões cobrem conta ou recomendados disponíveis somente depois de 30 segundos, substituição do bloco sem evento de navegação e restauração da página. Foco e visibilidade em uma aba já pronta não geram consultas extras; animações continuam sem disparar verificações de cartões.
+
+A espera inicial não é mais desligada ao completar 15 segundos. A descoberta reage apenas à chegada ou visibilidade dos elementos necessários e é desconectada ao encontrar o bloco. Um observador dos filhos diretos do contêiner detecta a substituição do bloco. Retorno à aba e restauração pelo navegador recuperam os controles quando necessário, sem intervalos ou consultas periódicas.
+
+No Edge, a aba relatada tinha a versão 1.8.0 ativa, conta disponível e recomendados presentes, mas estava com o observador e a descoberta desligados e nenhum cartão verificado. Uma notificação de página pronta reativou os botões sem recarregar a reprodução. Após instalar a 1.8.1, foram conferidos 20 botões na mesma aba, com posição, pausa e velocidade do vídeo preservadas. Não foram feitas inclusões ou exclusões na conta para testar. As alterações de playlist foram verificadas com o transporte nativo simulado. Manifesto, 20 referências, sintaxe JavaScript e conteúdo do ZIP também passaram.
+
 ## Versão 1.8.0 — 13 de novembro de 2026
 
 Passaram **4 testes unitários e 101 testes de navegador** (`npm test`), incluindo **21 casos de inclusão**. O botão + Mais tarde funciona na home, buscas, canais, inscrições, outras playlists e recomendados de vídeos abertos fora de WL. Os casos confirmam o comando nativo ACTION_ADD_VIDEO para WL, persistência após recarregar, confirmação do servidor e preservação dos filtros de já salvo, assistido e progresso parcial.

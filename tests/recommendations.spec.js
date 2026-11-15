@@ -210,3 +210,38 @@ test('atualização da página fora de WL preserva o aviso de inclusão confirma
   await page.waitForTimeout(250);await expect(page.locator('#tubeorder-action-result')).toContainText('Vídeo salvo');
   expect(await page.evaluate(()=>fixtureSaveCalls.length)).toBe(1);await page.close();
 });
+
+for(const kind of ['lateAvatar','lateRoot']) test(`inicialização após 30 segundos recupera ${kind} sem navegar nem recarregar`,async()=>{
+  const page=await context.newPage();await page.clock.install();await page.goto(`https://www.youtube.com/watch?v=current0001&saveSurface=1&${kind}=1`);
+  await page.bringToFront();const id=await worker.evaluate(async()=>(await chrome.tabs.query({active:true,currentWindow:true}))[0].id);
+  await expect.poll(async()=>{try{return !!(await worker.evaluate(id=>chrome.tabs.sendMessage(id,{type:'TUBEORDER_STATUS'}),id));}catch{return false;}}).toBe(true);
+  await page.clock.pauseAt(await page.evaluate(()=>Date.now()+1000));await page.clock.fastForward(30000);
+  await expect(button(page,'reco0000001')).toHaveCount(0);
+  await page.evaluate(kind=>kind==='lateAvatar'?fixtureSignIn():fixtureShowCards(),kind);
+  await page.clock.fastForward(150);await expect(button(page,'reco0000001')).toBeVisible();
+  for(const video of ['saved000001','partial0001','watched0001'])await expect(button(page,video)).toHaveCount(0);
+  expect(page.url()).toContain(kind+'=1');await page.clock.resume();await page.close();
+});
+
+test('substituição do bloco de recomendados sem evento de navegação recria os botões uma vez',async()=>{
+  const page=await context.newPage();await page.goto('https://www.youtube.com/watch?v=current0001&saveSurface=1');
+  await expect(button(page,'reco0000001')).toBeVisible();await page.evaluate(()=>fixtureReplaceRoot());
+  await expect(button(page,'reco0000001')).toBeVisible();await expect(button(page,'reco0000001')).toHaveCount(1);
+  await button(page,'reco0000001').click();await expect(page.locator('#tubeorder-action-result')).toContainText('Vídeo salvo');
+  expect(await page.evaluate(()=>fixtureSaveCalls.length)).toBe(1);await page.close();
+});
+
+test('restaurar a página revalida os recomendados; foco em uma aba pronta não cria consultas extras',async()=>{
+  const page=await context.newPage();await page.goto('https://www.youtube.com/watch?v=current0001&saveSurface=1');
+  await expect(button(page,'reco0000001')).toBeVisible();
+  const initial=await page.evaluate(()=>fixtureRecommendationScans);
+  for(const event of ['visibilitychange','pageshow','focus']){
+    await page.evaluate(event=>(event==='visibilitychange'?document:window).dispatchEvent(new Event(event)),event);
+    await expect(button(page,'reco0000001')).toHaveCount(1);
+  }
+  await page.waitForTimeout(250);expect(await page.evaluate(()=>fixtureRecommendationScans)).toBe(initial);
+  await page.evaluate(()=>window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true})));
+  await expect.poll(()=>page.evaluate(()=>fixtureRecommendationScans)).toBeGreaterThan(initial);
+  const before=await page.evaluate(()=>fixtureRecommendationScans);
+  await page.waitForTimeout(350);expect(await page.evaluate(()=>fixtureRecommendationScans)).toBe(before);await page.close();
+});

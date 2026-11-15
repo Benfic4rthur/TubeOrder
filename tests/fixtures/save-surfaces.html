@@ -43,6 +43,8 @@
     history.pushState({},'',path);populate();document.dispatchEvent(new Event('yt-navigate-finish'));
   };
   window.fixtureChangeAccount=()=>{identity='another-surface-account';root.remove();populate();document.dispatchEvent(new Event('yt-page-data-updated'));};
+  window.fixtureShowCards=()=>document.body.append(root);
+  window.fixtureReplaceRoot=()=>{const old=root;populate();old.remove();};
   document.addEventListener('yt-action',event=>{
     if(event.detail?.actionName!=='yt-service-request')return;
     const edit=event.detail.args?.[1]?.playlistEditEndpoint;
@@ -55,5 +57,6 @@
     },60))});
   });
   populate();
+  if(params.has('lateRoot'))root.remove();
 })();
 </script></body></html>
