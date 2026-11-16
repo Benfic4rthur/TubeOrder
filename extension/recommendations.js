@@ -15,7 +15,7 @@
     if (style?.isConnected) return;
     style = document.createElement("style");
     style.textContent = `
-      .tubeorder-save-row { display:flex!important;flex-direction:row!important;align-items:center!important;flex-wrap:wrap!important;column-gap:5px;row-gap:3px;min-width:0; }
+      .tubeorder-save-row { display:flex!important;flex-direction:row!important;align-items:center!important;flex-wrap:wrap!important;column-gap:5px;row-gap:3px;min-width:0;height:auto!important;max-height:none!important;overflow:visible!important; }
       .tubeorder-save { display:inline-flex!important;align-items:center;justify-content:center;flex:none;order:2;box-sizing:border-box;inline-size:max-content!important;min-inline-size:0!important;align-self:center!important;min-height:22px;padding:2px 7px;border:1px solid #c5aaff40;border-radius:12px;background:#c5aaff12;color:#dfcffb;font:600 10px/1.4 ui-sans-serif,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;white-space:nowrap;cursor:pointer; }
       .tubeorder-save:hover:not(:disabled) { background:#c5aaff2c; }
       .tubeorder-save:disabled { opacity:.6;cursor:wait; }

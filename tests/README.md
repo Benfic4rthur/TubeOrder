@@ -40,6 +40,12 @@ Executar `npm test` para testes unitários e de navegador. Os testes usam o Chro
 - O preview do aviso usa o mesmo botão Não apagar, mas seu caminho de expiração nunca envia pedidos de remoção, inclusive com reprodução pausada.
 - CSP com `require-trusted-types-for 'script'`: o preview permanece visível e o botão Não apagar funciona com a remoção desligada, sem exceções nem pedidos de remoção.
 
+## Versão 1.8.2 — 16 de novembro de 2026
+
+Passaram os **25 testes existentes de inclusão** (`npx playwright test tests/recommendations.spec.js`). A mudança de execução se limita ao CSS de `.tubeorder-save-row`: altura automática, sem altura máxima e sem recorte do conteúdo. Os comandos de inclusão, filtros e observadores permanecem iguais.
+
+No Edge, foi reproduzido o recorte nos resultados de busca: o `#byline-container` do YouTube tinha `max-height: 18px` e `overflow: hidden`, enquanto o botão TubeOrder tinha 22 px. A prévia do ajuste fez a linha crescer para 28 px e conter o botão por inteiro. O Bloquear presente na mesma linha também ficou visível, sem alteração no projeto CanalNonGrato. A versão 1.8.2 foi instalada, e o usuário confirmou que ambos os botões ficaram inteiros. Sintaxe, manifesto, 20 referências e conteúdo do ZIP também foram conferidos.
+
 ## Versão 1.8.1 — 15 de novembro de 2026
 
 Passaram **4 testes unitários e 105 testes de navegador** (`npm test`), incluindo **25 casos de inclusão**. Quatro regressões cobrem conta ou recomendados disponíveis somente depois de 30 segundos, substituição do bloco sem evento de navegação e restauração da página. Foco e visibilidade em uma aba já pronta não geram consultas extras; animações continuam sem disparar verificações de cartões.
